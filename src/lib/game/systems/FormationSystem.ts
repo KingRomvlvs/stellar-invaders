@@ -18,10 +18,17 @@ import {
   INVADER_ROW_TYPES,
   CANVAS,
   PROJECTILE,
-  COLORS,
 } from '../config'
+import type { AudioManager } from '../audio/AudioManager'
 
 export class FormationSystem {
+  private audioManager: AudioManager | null = null
+
+  // Set audio manager reference
+  setAudioManager(audioManager: AudioManager): void {
+    this.audioManager = audioManager
+  }
+
   // Create a new formation for a wave
   createFormation(wave: number): FormationState {
     const grid: InvaderSlot[][] = []
@@ -92,6 +99,9 @@ export class FormationSystem {
   private step(formation: FormationState, state: GameState): void {
     // Toggle animation frame for all invaders (classic wiggle effect)
     formation.animationFrame = formation.animationFrame === 0 ? 1 : 0
+
+    // Play step sound (classic Space Invaders beep)
+    this.audioManager?.playInvaderStep()
 
     if (formation.pendingDrop) {
       // Drop down

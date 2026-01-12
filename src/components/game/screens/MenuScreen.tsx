@@ -46,16 +46,18 @@ export function renderMenuScreen({
   // High score
   ctx.fillStyle = COLORS.ufo
   ctx.font = 'bold 20px monospace'
-  ctx.fillText(`HIGH SCORE: ${highScore.toString().padStart(6, '0')}`, centerX, 280)
+  ctx.fillText(`HIGH SCORE: ${highScore.toString().padStart(6, '0')}`, centerX, 260)
 
-  // Decorative invaders
-  renderDecorativeInvaders(ctx, centerX, 340)
+  // Decorative invaders (moved up slightly and more compact)
+  renderDecorativeInvaders(ctx, centerX, 300)
 
-  // Instructions hint
+  // Instructions hint (more space from invaders section)
+  ctx.fillStyle = '#AAAAAA'
+  ctx.font = '16px monospace'
+  ctx.fillText('Press SPACE or tap to start', centerX, 520)
   ctx.fillStyle = '#666666'
   ctx.font = '14px monospace'
-  ctx.fillText('Press SPACE or tap to start', centerX, 480)
-  ctx.fillText('Arrow keys / WASD to move', centerX, 510)
+  ctx.fillText('Arrow keys / WASD to move', centerX, 550)
 }
 
 // Render decorative invaders for the menu
@@ -71,6 +73,7 @@ function renderDecorativeInvaders(
   ]
 
   let currentY = y
+  const rowSpacing = 45 // Space between rows
 
   for (const invader of invaderTypes) {
     // Draw invader
@@ -103,7 +106,7 @@ function renderDecorativeInvaders(
     ctx.textAlign = 'left'
     ctx.fillText(`= ${invader.points} PTS`, centerX - 40, currentY + 12)
 
-    currentY += 40
+    currentY += rowSpacing
   }
 
   // UFO

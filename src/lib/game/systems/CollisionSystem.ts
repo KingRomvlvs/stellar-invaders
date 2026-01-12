@@ -12,15 +12,23 @@ import { FORMATION, PLAYER, BUNKER, CANVAS, COLORS } from '../config'
 import type { FormationSystem } from './FormationSystem'
 import type { PlayerSystem } from './PlayerSystem'
 import type { ParticleSystem } from './ParticleSystem'
+import type { PowerUpSystem } from './PowerUpSystem'
 import type { AudioManager } from '../audio/AudioManager'
 
 export class CollisionSystem {
+  private powerUpSystem: PowerUpSystem | null = null
+
   constructor(
     private formationSystem: FormationSystem,
     private playerSystem: PlayerSystem,
     private particleSystem: ParticleSystem,
     private audioManager: AudioManager
   ) {}
+
+  // Set power-up system reference
+  setPowerUpSystem(powerUpSystem: PowerUpSystem): void {
+    this.powerUpSystem = powerUpSystem
+  }
 
   // Main collision update
   update(state: GameState): void {
@@ -37,6 +45,7 @@ export class CollisionSystem {
     this.checkFormationVsBunkers(state)
     this.checkAsteroidsVsPlayer(state)
     this.checkBossVsPlayer(state)
+    this.checkPowerUpsVsPlayer(state)
   }
 
   // Player projectiles hitting invader formation
@@ -80,6 +89,9 @@ export class CollisionSystem {
             COLORS.invaders[invaderType]
           )
           this.audioManager.playExplosion()
+
+          // Try to spawn power-up
+          this.powerUpSystem?.trySpawnPowerUp(state, invaderPos)
         }
 
         // Only one hit per frame
@@ -288,7 +300,12 @@ export class CollisionSystem {
 
     for (const { worldPos } of invaders) {
       // Check if invader reached player Y level
-      if (worldPos.y + FORMATION.invaderHeight / 2 >= player.position.y - 20) {
+      // worldPos.y is already the CENTER of the invader (includes FORMATION.invaderHeight / 2)
+      // So we just need to check if the bottom of the invader reaches player area
+      const invaderBottom = worldPos.y + FORMATION.invaderHeight / 2
+      const playerTop = player.position.y - player.height / 2 - 20 // Give some margin above player
+
+      if (invaderBottom >= playerTop) {
         // Instant game over when invaders reach bottom
         if (!player.isInvincible && !player.isRespawning) {
           this.handlePlayerHit(state)
@@ -412,6 +429,20 @@ export class CollisionSystem {
 
     if (isGameOver) {
       // Game over handled by engine
+    }
+  }
+
+  // Power-ups touching player
+  private checkPowerUpsVsPlayer(state: GameState): void {
+    const player = state.player
+    if (!player.isActive) return
+
+    for (const powerUp of state.powerUps) {
+      if (!powerUp.isActive) continue
+
+      if (this.checkAABB(powerUp, player)) {
+        this.powerUpSystem?.collectPowerUp(powerUp, state)
+      }
     }
   }
 

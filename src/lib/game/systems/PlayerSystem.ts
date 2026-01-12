@@ -2,9 +2,17 @@
 // Handles player movement, shooting, and state management
 
 import type { PlayerState, GameState, InputState, Projectile } from '../types'
-import { PLAYER, CANVAS, PROJECTILE } from '../config'
+import { PLAYER, CANVAS, PROJECTILE, POWERUP } from '../config'
+import type { AudioManager } from '../audio/AudioManager'
 
 export class PlayerSystem {
+  private audioManager: AudioManager | null = null
+
+  // Set audio manager reference (called after construction)
+  setAudioManager(audioManager: AudioManager): void {
+    this.audioManager = audioManager
+  }
+
   // Create initial player state
   createPlayer(): PlayerState {
     return {
@@ -25,9 +33,8 @@ export class PlayerSystem {
   // Main update
   update(dt: number, state: GameState, input: InputState): void {
     const player = state.player
-    if (!player.isActive) return
 
-    // Handle respawning
+    // Handle respawning FIRST (even when player is inactive)
     if (player.isRespawning) {
       player.respawnTimer -= dt
       if (player.respawnTimer <= 0) {
@@ -37,8 +44,11 @@ export class PlayerSystem {
         player.invincibilityTimer = PLAYER.invincibilityTime
         player.position.x = CANVAS.width / 2
       }
-      return
+      return // Don't process other updates while respawning
     }
+
+    // Skip updates if player is not active (and not respawning)
+    if (!player.isActive) return
 
     // Handle invincibility
     if (player.isInvincible) {
@@ -117,12 +127,13 @@ export class PlayerSystem {
 
     if (wantsToShoot && player.canShoot) {
       // Check if player already has an active projectile (classic style)
-      // For a more modern feel, comment out this check
+      // Multi-shot bypasses this restriction
+      const isMultiShotActive = state.activePowerUps.multiShot > 0
       const hasActiveProjectile = state.playerProjectiles.some(
         (p) => p.isActive && p.isPlayerProjectile
       )
 
-      if (!hasActiveProjectile) {
+      if (!hasActiveProjectile || isMultiShotActive) {
         this.shoot(player, state)
       }
     }
@@ -130,7 +141,11 @@ export class PlayerSystem {
 
   // Fire a projectile
   private shoot(player: PlayerState, state: GameState): void {
-    const projectile: Projectile = {
+    const isMultiShotActive = state.activePowerUps.multiShot > 0
+    const isRapidFireActive = state.activePowerUps.rapidFire > 0
+
+    // Create main projectile
+    const mainProjectile: Projectile = {
       position: {
         x: player.position.x,
         y: player.position.y - player.height / 2 - 5,
@@ -144,11 +159,62 @@ export class PlayerSystem {
       type: 'normal',
     }
 
-    state.playerProjectiles.push(projectile)
+    state.playerProjectiles.push(mainProjectile)
     state.shotsFired++
 
+    // Multi-shot: Add angled projectiles
+    if (isMultiShotActive) {
+      const spreadAngle = 15 * (Math.PI / 180) // 15 degrees
+      const speed = PROJECTILE.player.speed
+
+      // Left projectile
+      const leftProjectile: Projectile = {
+        position: {
+          x: player.position.x - 8,
+          y: player.position.y - player.height / 2 - 5,
+        },
+        velocity: {
+          x: -Math.sin(spreadAngle) * speed,
+          y: -Math.cos(spreadAngle) * speed,
+        },
+        width: PROJECTILE.player.width,
+        height: PROJECTILE.player.height,
+        isActive: true,
+        isPlayerProjectile: true,
+        damage: 1,
+        type: 'normal',
+      }
+
+      // Right projectile
+      const rightProjectile: Projectile = {
+        position: {
+          x: player.position.x + 8,
+          y: player.position.y - player.height / 2 - 5,
+        },
+        velocity: {
+          x: Math.sin(spreadAngle) * speed,
+          y: -Math.cos(spreadAngle) * speed,
+        },
+        width: PROJECTILE.player.width,
+        height: PROJECTILE.player.height,
+        isActive: true,
+        isPlayerProjectile: true,
+        damage: 1,
+        type: 'normal',
+      }
+
+      state.playerProjectiles.push(leftProjectile, rightProjectile)
+      state.shotsFired += 2
+    }
+
+    // Play shooting sound
+    this.audioManager?.playShoot()
+
+    // Apply cooldown (reduced if rapid fire is active)
     player.canShoot = false
-    player.shootCooldownRemaining = PLAYER.shootCooldown
+    player.shootCooldownRemaining = isRapidFireActive
+      ? POWERUP.rapidFireCooldown
+      : PLAYER.shootCooldown
   }
 
   // Handle player being hit

@@ -5,9 +5,17 @@ export class AudioManager {
   private audioContext: AudioContext | null = null
   private enabled: boolean = true
   private reducedMotion: boolean = false
+  private backgroundMusic: HTMLAudioElement | null = null
+  private musicVolume: number = 0.3
 
   constructor() {
     // AudioContext will be created on first user interaction
+    // Initialize background music
+    if (typeof window !== 'undefined') {
+      this.backgroundMusic = new Audio('/audio/background-music.m4a')
+      this.backgroundMusic.loop = true
+      this.backgroundMusic.volume = this.musicVolume
+    }
   }
 
   // Initialize audio context (must be called after user interaction)
@@ -24,15 +32,61 @@ export class AudioManager {
         return null
       }
     }
+
+    // Resume suspended audio context (browser autoplay policy)
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume()
+    }
+
     return this.audioContext
   }
 
   // Enable/disable audio
   setEnabled(enabled: boolean): void {
     this.enabled = enabled
-    if (!enabled && this.audioContext) {
-      this.audioContext.close()
-      this.audioContext = null
+    if (!enabled) {
+      if (this.audioContext) {
+        this.audioContext.close()
+        this.audioContext = null
+      }
+      this.stopMusic()
+    }
+  }
+
+  // Start background music
+  startMusic(): void {
+    if (!this.enabled || !this.backgroundMusic) return
+
+    this.backgroundMusic.play().catch(() => {
+      // Browser blocked autoplay, will start on next user interaction
+    })
+  }
+
+  // Stop background music
+  stopMusic(): void {
+    if (!this.backgroundMusic) return
+
+    this.backgroundMusic.pause()
+    this.backgroundMusic.currentTime = 0
+  }
+
+  // Pause background music
+  pauseMusic(): void {
+    if (!this.backgroundMusic) return
+    this.backgroundMusic.pause()
+  }
+
+  // Resume background music
+  resumeMusic(): void {
+    if (!this.enabled || !this.backgroundMusic) return
+    this.backgroundMusic.play().catch(() => {})
+  }
+
+  // Set music volume (0-1)
+  setMusicVolume(volume: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, volume))
+    if (this.backgroundMusic) {
+      this.backgroundMusic.volume = this.musicVolume
     }
   }
 
@@ -393,6 +447,33 @@ export class AudioManager {
     })
   }
 
+  // Power-up collection sound
+  playPowerUp(): void {
+    const ctx = this.getContext()
+    if (!ctx) return
+
+    // Ascending sparkly sound
+    const notes = [523, 659, 784, 1047] // C5, E5, G5, C6
+    notes.forEach((freq, i) => {
+      setTimeout(() => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, ctx.currentTime)
+
+        gain.gain.setValueAtTime(0.12, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15)
+
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.15)
+      }, i * 50)
+    })
+  }
+
   // Menu select sound
   playMenuSelect(): void {
     const ctx = this.getContext()
@@ -417,6 +498,9 @@ export class AudioManager {
 
   // Cleanup
   destroy(): void {
+    this.stopMusic()
+    this.backgroundMusic = null
+
     if (this.audioContext) {
       this.audioContext.close()
       this.audioContext = null

@@ -47,7 +47,7 @@ export const FORMATION = {
   verticalDrop: 16, // pixels when dropping
   minStepInterval: 100, // fastest speed (ms)
   maxStepInterval: 800, // slowest speed (ms)
-  shootChance: 0.02, // 2% chance per step for bottom invaders
+  shootChance: 0.15, // 15% chance per step for bottom invaders to shoot
 
   // Difficulty scaling per wave
   stepIntervalReductionPerWave: 50, // ms faster per wave
@@ -168,6 +168,22 @@ export const ASTEROID = {
   spawnChance: 0.4,
 } as const
 
+// ========== POWER-UPS ==========
+
+export const POWERUP = {
+  width: 24,
+  height: 24,
+  fallSpeed: 80, // pixels per second
+  lifetime: 8000, // ms before disappearing
+  dropChance: 0.15, // 15% chance when killing an invader
+  effectDuration: {
+    rapidFire: 5000, // 5 seconds
+    shield: 4000, // 4 seconds
+    multiShot: 6000, // 6 seconds
+  },
+  rapidFireCooldown: 150, // Reduced cooldown when active (ms)
+} as const
+
 // ========== PARTICLES ==========
 
 export const PARTICLES = {
@@ -231,6 +247,14 @@ export const COLORS = {
   // Special
   ufo: '#FF00FF',
   asteroid: '#8B7355',
+
+  // Power-ups
+  powerUp: {
+    extraLife: '#FF6B6B', // Red/pink - extra life
+    rapidFire: '#FFD700', // Gold - rapid fire
+    shield: '#00BFFF', // Deep sky blue - shield
+    multiShot: '#9932CC', // Purple - multi shot
+  },
 
   // Explosions
   explosion: ['#FF6B6B', '#FFB347', '#FFFFFF', '#FFD700'],

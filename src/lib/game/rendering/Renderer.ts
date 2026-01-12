@@ -7,6 +7,7 @@ import type {
   Particle,
   Star,
   InvaderType,
+  PowerUpType,
 } from '../types'
 import {
   CANVAS,
@@ -53,6 +54,7 @@ export class Renderer {
     this.renderPlayer(state, alpha)
     this.renderProjectiles(state)
     this.renderAsteroids(state)
+    this.renderPowerUps(state)
     this.renderUFO(state)
     this.renderBoss(state)
     this.renderParticles(state)
@@ -325,6 +327,100 @@ export class Renderer {
 
       this.ctx.restore()
     }
+  }
+
+  // Render power-ups
+  private renderPowerUps(state: GameState): void {
+    for (const powerUp of state.powerUps) {
+      if (!powerUp.isActive) continue
+
+      const color = COLORS.powerUp[powerUp.type]
+      const pulse = 0.8 + Math.sin(performance.now() / 150) * 0.2
+
+      this.ctx.save()
+      this.ctx.translate(powerUp.position.x, powerUp.position.y)
+
+      // Pulsing glow
+      this.ctx.shadowColor = color
+      this.ctx.shadowBlur = 15 * pulse
+
+      // Draw power-up based on type
+      this.ctx.fillStyle = color
+      this.ctx.strokeStyle = '#FFFFFF'
+      this.ctx.lineWidth = 2
+
+      const size = powerUp.width / 2
+
+      // Draw shape based on type
+      switch (powerUp.type) {
+        case 'extraLife':
+          // Heart shape
+          this.ctx.beginPath()
+          this.ctx.moveTo(0, size * 0.3)
+          this.ctx.bezierCurveTo(-size, -size * 0.3, -size, size * 0.5, 0, size)
+          this.ctx.bezierCurveTo(size, size * 0.5, size, -size * 0.3, 0, size * 0.3)
+          this.ctx.fill()
+          this.ctx.stroke()
+          break
+
+        case 'rapidFire':
+          // Lightning bolt
+          this.ctx.beginPath()
+          this.ctx.moveTo(0, -size)
+          this.ctx.lineTo(-size * 0.6, 0)
+          this.ctx.lineTo(0, 0)
+          this.ctx.lineTo(0, size)
+          this.ctx.lineTo(size * 0.6, 0)
+          this.ctx.lineTo(0, 0)
+          this.ctx.closePath()
+          this.ctx.fill()
+          this.ctx.stroke()
+          break
+
+        case 'shield':
+          // Shield shape
+          this.ctx.beginPath()
+          this.ctx.moveTo(0, -size)
+          this.ctx.lineTo(size, -size * 0.3)
+          this.ctx.lineTo(size, size * 0.3)
+          this.ctx.lineTo(0, size)
+          this.ctx.lineTo(-size, size * 0.3)
+          this.ctx.lineTo(-size, -size * 0.3)
+          this.ctx.closePath()
+          this.ctx.fill()
+          this.ctx.stroke()
+          break
+
+        case 'multiShot':
+          // Triple arrows
+          this.ctx.beginPath()
+          // Center arrow
+          this.ctx.moveTo(0, -size)
+          this.ctx.lineTo(size * 0.4, size * 0.3)
+          this.ctx.lineTo(0, 0)
+          this.ctx.lineTo(-size * 0.4, size * 0.3)
+          this.ctx.closePath()
+          // Left arrow
+          this.ctx.moveTo(-size * 0.6, -size * 0.5)
+          this.ctx.lineTo(-size * 0.2, size * 0.5)
+          this.ctx.lineTo(-size * 0.6, size * 0.2)
+          this.ctx.lineTo(-size, size * 0.5)
+          this.ctx.closePath()
+          // Right arrow
+          this.ctx.moveTo(size * 0.6, -size * 0.5)
+          this.ctx.lineTo(size * 0.2, size * 0.5)
+          this.ctx.lineTo(size * 0.6, size * 0.2)
+          this.ctx.lineTo(size, size * 0.5)
+          this.ctx.closePath()
+          this.ctx.fill()
+          this.ctx.stroke()
+          break
+      }
+
+      this.ctx.restore()
+    }
+
+    this.ctx.shadowBlur = 0
   }
 
   // Render UFO

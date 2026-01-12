@@ -6,7 +6,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { GameEngine } from '@/lib/game/Engine'
 import { CANVAS, COLORS } from '@/lib/game/config'
-import type { GameState, GameScreen, GameSettings } from '@/lib/game/types'
+import type { GameState, GameScreen } from '@/lib/game/types'
 import { useSettings } from '@/contexts/SettingsContext'
 import { GameUI } from './GameUI'
 import { VirtualJoystick } from './controls/VirtualJoystick'
@@ -16,6 +16,7 @@ export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<GameEngine | null>(null)
+  const engineCreatedRef = useRef(false) // Track if engine has been created
 
   const { settings, updateHighScore, highScore } = useSettings()
   const [gameState, setGameState] = useState<GameState | null>(null)
@@ -61,20 +62,45 @@ export function GameCanvas() {
     canvas.style.height = `${canvasHeight}px`
   }, [])
 
-  // Initialize game engine
+  // Use ref to track high score without causing re-renders
+  const highScoreRef = useRef(highScore)
   useEffect(() => {
-    if (!canvasRef.current) return
+    highScoreRef.current = highScore
+  }, [highScore])
 
-    const engine = new GameEngine(canvasRef.current, settings)
+  // Use ref for updateHighScore to avoid dependency issues
+  const updateHighScoreRef = useRef(updateHighScore)
+  useEffect(() => {
+    updateHighScoreRef.current = updateHighScore
+  }, [updateHighScore])
+
+  // Use ref for settings to avoid engine recreation on every settings change
+  const settingsRef = useRef(settings)
+  useEffect(() => {
+    settingsRef.current = settings
+    // Update existing engine with new settings (without recreating)
+    if (engineRef.current) {
+      engineRef.current.updateSettings(settings)
+    }
+  }, [settings])
+
+  // Initialize game engine - ONLY create ONCE
+  useEffect(() => {
+    // Prevent double creation (React StrictMode or settings hydration)
+    if (!canvasRef.current || engineCreatedRef.current) return
+
+    engineCreatedRef.current = true
+
+    const engine = new GameEngine(canvasRef.current, settingsRef.current)
     engineRef.current = engine
 
     // Subscribe to state changes
     engine.onStateChange((state) => {
       setGameState(state)
 
-      // Update high score if needed
-      if (state.score > highScore) {
-        updateHighScore(state.score)
+      // Update high score if needed (use refs to avoid stale closures)
+      if (state.score > highScoreRef.current) {
+        updateHighScoreRef.current(state.score)
       }
     })
 
@@ -90,16 +116,10 @@ export function GameCanvas() {
 
     return () => {
       engine.destroy()
+      engineCreatedRef.current = false
       window.removeEventListener('resize', handleResize)
     }
-  }, [handleResize, settings, highScore, updateHighScore])
-
-  // Update engine settings when they change
-  useEffect(() => {
-    if (engineRef.current) {
-      engineRef.current.updateSettings(settings)
-    }
-  }, [settings])
+  }, [handleResize]) // Only depends on handleResize (which is stable via useCallback)
 
   // Handle virtual joystick input
   const handleJoystickMove = useCallback(

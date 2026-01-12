@@ -168,6 +168,27 @@ export interface MysteryUFO {
   isActive: boolean
 }
 
+// ========== POWER-UPS ==========
+
+export type PowerUpType = 'extraLife' | 'rapidFire' | 'shield' | 'multiShot'
+
+export interface PowerUp {
+  position: Vector2D
+  velocity: Vector2D
+  type: PowerUpType
+  width: number
+  height: number
+  isActive: boolean
+  lifetime: number // How long before it disappears
+}
+
+// Power-up effect tracking on player
+export interface ActivePowerUps {
+  rapidFire: number // Time remaining (ms), 0 = not active
+  shield: number // Time remaining (ms), 0 = not active
+  multiShot: number // Time remaining (ms), 0 = not active
+}
+
 // ========== PARTICLES & EFFECTS ==========
 
 export interface Particle {
@@ -213,6 +234,8 @@ export interface GameState {
   boss: BossState | null
   mysteryUFO: MysteryUFO | null
   asteroids: Asteroid[]
+  powerUps: PowerUp[]
+  activePowerUps: ActivePowerUps
 
   // Visual effects
   particles: Particle[]

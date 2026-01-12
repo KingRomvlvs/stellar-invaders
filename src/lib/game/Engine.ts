@@ -33,9 +33,16 @@ import { ParticleSystem } from './systems/ParticleSystem'
 import { BossSystem } from './systems/BossSystem'
 import { UFOSystem } from './systems/UFOSystem'
 import { AsteroidSystem } from './systems/AsteroidSystem'
+import { PowerUpSystem } from './systems/PowerUpSystem'
 import { InputManager } from './input/InputManager'
 import { AudioManager } from './audio/AudioManager'
 import { Renderer } from './rendering/Renderer'
+import { renderMenuScreen } from '../../components/game/screens/MenuScreen'
+import { renderHowToScreen } from '../../components/game/screens/HowToScreen'
+import { renderSettingsScreen, getSettingOptions } from '../../components/game/screens/SettingsScreen'
+import { renderWaveIntroScreen } from '../../components/game/screens/WaveIntroScreen'
+import { renderBossIntroScreen } from '../../components/game/screens/BossIntroScreen'
+import { renderGameOverScreen, createGameStats } from '../../components/game/screens/GameOverScreen'
 
 export class GameEngine {
   // Canvas & Context
@@ -56,6 +63,7 @@ export class GameEngine {
   private bossSystem: BossSystem
   private ufoSystem: UFOSystem
   private asteroidSystem: AsteroidSystem
+  private powerUpSystem: PowerUpSystem
   private inputManager: InputManager
   private audioManager: AudioManager
   private renderer: Renderer
@@ -64,6 +72,12 @@ export class GameEngine {
   private animationId: number | null = null
   private lastTime: number = 0
   private accumulator: number = 0
+
+  // UI State
+  private settingsSelectedIndex: number = 0
+  private isMobile: boolean = false
+  private gameOverElapsedTime: number = 0
+  private invadersDestroyed: number = 0
 
   // Callbacks
   private stateCallbacks: GameStateCallback[] = []
@@ -87,12 +101,16 @@ export class GameEngine {
     this.renderer.setReducedMotion(this.settings.reducedMotion)
 
     this.formationSystem = new FormationSystem()
+    this.formationSystem.setAudioManager(this.audioManager)
     this.playerSystem = new PlayerSystem()
+    this.playerSystem.setAudioManager(this.audioManager)
     this.projectileSystem = new ProjectileSystem()
     this.particleSystem = new ParticleSystem()
     this.bossSystem = new BossSystem(this.particleSystem, this.audioManager)
     this.ufoSystem = new UFOSystem(this.audioManager)
     this.asteroidSystem = new AsteroidSystem(this.particleSystem, this.audioManager)
+    this.powerUpSystem = new PowerUpSystem()
+    this.powerUpSystem.setAudioManager(this.audioManager)
 
     // CollisionSystem needs references to other systems
     this.collisionSystem = new CollisionSystem(
@@ -101,6 +119,7 @@ export class GameEngine {
       this.particleSystem,
       this.audioManager
     )
+    this.collisionSystem.setPowerUpSystem(this.powerUpSystem)
 
     // Initialize state machine
     this.stateMachine = new GameStateMachine('menu')
@@ -111,6 +130,14 @@ export class GameEngine {
 
     // Initialize game state
     this.gameState = this.createInitialState()
+
+    // Detect mobile
+    if (typeof window !== 'undefined') {
+      this.isMobile =
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        window.innerWidth < 768
+    }
   }
 
   // Create initial game state
@@ -125,6 +152,8 @@ export class GameEngine {
       boss: null,
       mysteryUFO: null,
       asteroids: [],
+      powerUps: [],
+      activePowerUps: this.powerUpSystem.createInitialActivePowerUps(),
       particles: [],
       screenShake: null,
       stars: this.createStarfield(),
@@ -355,6 +384,7 @@ export class GameEngine {
     this.playerSystem.update(dt, this.gameState, input)
     this.formationSystem.update(dt, this.gameState)
     this.projectileSystem.update(dt, this.gameState)
+    this.powerUpSystem.update(dt, this.gameState)
     this.collisionSystem.update(this.gameState)
     this.particleSystem.update(dt, this.gameState)
     this.ufoSystem.update(dt, this.gameState)
@@ -381,6 +411,7 @@ export class GameEngine {
     this.playerSystem.update(dt, this.gameState, input)
     this.bossSystem.update(dt, this.gameState)
     this.projectileSystem.update(dt, this.gameState)
+    this.powerUpSystem.update(dt, this.gameState)
     this.collisionSystem.update(this.gameState)
     this.particleSystem.update(dt, this.gameState)
 
@@ -482,6 +513,7 @@ export class GameEngine {
   // Trigger game over
   private triggerGameOver(): void {
     this.saveHighScore(this.gameState.score)
+    this.audioManager.stopMusic()
     this.audioManager.playGameOver()
     this.stateMachine.gameOver(
       this.gameState.score,
@@ -492,29 +524,155 @@ export class GameEngine {
 
   // Handle menu input
   private handleMenuInput(): void {
-    // Menu input is handled by React components
+    const input = this.inputManager.getState()
+    const screen = this.gameState.screen
+
+    // Check for action (space, click, or touch)
+    if (input.shoot || input.touchShoot) {
+      input.shoot = false
+      input.touchShoot = false
+
+      if (screen === 'menu') {
+        this.startGame()
+        this.audioManager.playMenuSelect()
+      } else if (screen === 'howTo' || screen === 'settings') {
+        this.navigateTo('menu')
+      }
+      return
+    }
+
+    // Check for escape/back
+    if (this.inputManager.consumePause()) {
+      if (screen === 'howTo' || screen === 'settings') {
+        this.navigateTo('menu')
+      }
+      return
+    }
+
+    // Settings-specific navigation
+    if (screen === 'settings') {
+      const options = getSettingOptions()
+
+      // Up/down navigation
+      if (input.moveLeft) {
+        input.moveLeft = false
+        this.settingsSelectedIndex = Math.max(0, this.settingsSelectedIndex - 1)
+        this.audioManager.playMenuSelect()
+      }
+      if (input.moveRight) {
+        input.moveRight = false
+        this.settingsSelectedIndex = Math.min(options.length - 1, this.settingsSelectedIndex + 1)
+        this.audioManager.playMenuSelect()
+      }
+
+      // TODO: Handle left/right to change setting values
+    }
   }
 
   // Handle game over input
   private handleGameOverInput(): void {
-    // Game over input is handled by React components
+    const input = this.inputManager.getState()
+
+    // Check for action to replay
+    if (input.shoot || input.touchShoot) {
+      input.shoot = false
+      input.touchShoot = false
+      this.gameOverElapsedTime = 0
+      this.invadersDestroyed = 0
+      this.startGame()
+      this.audioManager.playMenuSelect()
+      return
+    }
+
+    // Check for escape to go to menu
+    if (this.inputManager.consumePause()) {
+      this.gameOverElapsedTime = 0
+      this.invadersDestroyed = 0
+      this.stateMachine.backToMenu()
+      this.audioManager.playMenuSelect()
+    }
   }
 
   // Render
   private render(alpha: number, currentTime: number): void {
     const screen = this.gameState.screen
 
-    // Always render game elements for background
-    if (screen === 'playing' || screen === 'bossFight') {
-      this.renderer.render(this.gameState, alpha)
-    } else {
-      // Just render stars and any visible game elements
-      this.ctx.fillStyle = '#0a0a1a'
-      this.ctx.fillRect(0, 0, CANVAS.width, CANVAS.height)
-      this.renderer.render(this.gameState, alpha)
-    }
+    // Render based on current screen
+    switch (screen) {
+      case 'menu':
+        renderMenuScreen({
+          ctx: this.ctx,
+          highScore: this.gameState.highScore,
+          onStart: () => this.startGame(),
+          onHowTo: () => this.navigateTo('howTo'),
+          onSettings: () => this.navigateTo('settings'),
+        })
+        break
 
-    // Screen-specific overlays are handled by React components
+      case 'howTo':
+        renderHowToScreen({
+          ctx: this.ctx,
+          isMobile: this.isMobile,
+        })
+        break
+
+      case 'settings':
+        renderSettingsScreen({
+          ctx: this.ctx,
+          settings: this.settings,
+          selectedIndex: this.settingsSelectedIndex,
+        })
+        break
+
+      case 'waveIntro':
+        // Render game in background
+        this.renderer.render(this.gameState, alpha)
+        // Render wave intro overlay
+        const waveProgress = this.gameState.waveTransitionTimer / TRANSITIONS.waveIntroDuration
+        renderWaveIntroScreen({
+          ctx: this.ctx,
+          wave: this.gameState.wave,
+          progress: Math.min(waveProgress, 1),
+        })
+        break
+
+      case 'bossIntro':
+        // Render game in background
+        this.renderer.render(this.gameState, alpha)
+        // Render boss intro overlay
+        const bossProgress = this.gameState.waveTransitionTimer / TRANSITIONS.bossIntroDuration
+        renderBossIntroScreen({
+          ctx: this.ctx,
+          wave: this.gameState.wave,
+          progress: Math.min(bossProgress, 1),
+        })
+        break
+
+      case 'playing':
+      case 'bossFight':
+        this.renderer.render(this.gameState, alpha)
+        break
+
+      case 'gameOver':
+        // Render game in background (frozen state)
+        this.renderer.render(this.gameState, alpha)
+        // Render game over overlay
+        this.gameOverElapsedTime += TIMING.fixedTimestep
+        const stats = createGameStats(
+          this.gameState.score,
+          this.gameState.highScore,
+          this.gameState.wave,
+          this.invadersDestroyed,
+          this.gameState.shotsFired,
+          this.gameState.shotsHit
+        )
+        renderGameOverScreen({
+          ctx: this.ctx,
+          stats,
+          elapsedTime: this.gameOverElapsedTime,
+        })
+        break
+    }
   }
 
   // ========== PUBLIC API ==========
@@ -536,6 +694,10 @@ export class GameEngine {
 
     // Start wave 1
     this.prepareWave(1)
+
+    // Start background music
+    this.audioManager.startMusic()
+
     this.stateMachine.forceTransition('waveIntro')
   }
 
