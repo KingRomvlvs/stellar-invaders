@@ -1,0 +1,670 @@
+// Game Engine
+// Core orchestrator with fixed timestep game loop
+// Coordinates all systems for authentic Space Invaders gameplay
+
+import type {
+  GameState,
+  GameSettings,
+  GameScreen,
+  BunkerState,
+  BunkerCell,
+  Star,
+  GameStateCallback,
+  ScreenChangeCallback,
+} from './types'
+import {
+  CANVAS,
+  TIMING,
+  BUNKER,
+  STARFIELD,
+  TRANSITIONS,
+  BOSS,
+  SCORING,
+  STORAGE_KEYS,
+  DEFAULT_SETTINGS,
+  SCREEN_SHAKE,
+} from './config'
+import { GameStateMachine } from './StateMachine'
+import { FormationSystem } from './systems/FormationSystem'
+import { PlayerSystem } from './systems/PlayerSystem'
+import { ProjectileSystem } from './systems/ProjectileSystem'
+import { CollisionSystem } from './systems/CollisionSystem'
+import { ParticleSystem } from './systems/ParticleSystem'
+import { BossSystem } from './systems/BossSystem'
+import { UFOSystem } from './systems/UFOSystem'
+import { AsteroidSystem } from './systems/AsteroidSystem'
+import { InputManager } from './input/InputManager'
+import { AudioManager } from './audio/AudioManager'
+import { Renderer } from './rendering/Renderer'
+
+export class GameEngine {
+  // Canvas & Context
+  private canvas: HTMLCanvasElement
+  private ctx: CanvasRenderingContext2D
+
+  // State
+  private gameState: GameState
+  private settings: GameSettings
+  private stateMachine: GameStateMachine
+
+  // Systems
+  private formationSystem: FormationSystem
+  private playerSystem: PlayerSystem
+  private projectileSystem: ProjectileSystem
+  private collisionSystem: CollisionSystem
+  private particleSystem: ParticleSystem
+  private bossSystem: BossSystem
+  private ufoSystem: UFOSystem
+  private asteroidSystem: AsteroidSystem
+  private inputManager: InputManager
+  private audioManager: AudioManager
+  private renderer: Renderer
+
+  // Game Loop
+  private animationId: number | null = null
+  private lastTime: number = 0
+  private accumulator: number = 0
+
+  // Callbacks
+  private stateCallbacks: GameStateCallback[] = []
+  private screenCallbacks: ScreenChangeCallback[] = []
+
+  constructor(canvas: HTMLCanvasElement, initialSettings?: GameSettings) {
+    this.canvas = canvas
+    this.ctx = canvas.getContext('2d')!
+    this.ctx.imageSmoothingEnabled = false
+
+    // Load settings (use provided or load from storage)
+    this.settings = initialSettings || this.loadSettings()
+
+    // Initialize systems
+    this.audioManager = new AudioManager()
+    this.audioManager.setEnabled(this.settings.soundEnabled)
+    this.audioManager.setReducedMotion(this.settings.reducedMotion)
+
+    this.inputManager = new InputManager(canvas, this.settings)
+    this.renderer = new Renderer(this.ctx)
+    this.renderer.setReducedMotion(this.settings.reducedMotion)
+
+    this.formationSystem = new FormationSystem()
+    this.playerSystem = new PlayerSystem()
+    this.projectileSystem = new ProjectileSystem()
+    this.particleSystem = new ParticleSystem()
+    this.bossSystem = new BossSystem(this.particleSystem, this.audioManager)
+    this.ufoSystem = new UFOSystem(this.audioManager)
+    this.asteroidSystem = new AsteroidSystem(this.particleSystem, this.audioManager)
+
+    // CollisionSystem needs references to other systems
+    this.collisionSystem = new CollisionSystem(
+      this.formationSystem,
+      this.playerSystem,
+      this.particleSystem,
+      this.audioManager
+    )
+
+    // Initialize state machine
+    this.stateMachine = new GameStateMachine('menu')
+    this.stateMachine.onScreenChange((screen) => {
+      this.gameState.screen = screen
+      this.screenCallbacks.forEach((cb) => cb(screen))
+    })
+
+    // Initialize game state
+    this.gameState = this.createInitialState()
+  }
+
+  // Create initial game state
+  private createInitialState(): GameState {
+    return {
+      screen: 'menu',
+      player: this.playerSystem.createPlayer(),
+      formation: null,
+      playerProjectiles: [],
+      enemyProjectiles: [],
+      bunkers: [],
+      boss: null,
+      mysteryUFO: null,
+      asteroids: [],
+      particles: [],
+      screenShake: null,
+      stars: this.createStarfield(),
+      score: 0,
+      highScore: this.loadHighScore(),
+      wave: 0,
+      isBossWave: false,
+      waveTransitionTimer: 0,
+      gameTime: 0,
+      lastUFOSpawn: 0,
+      gameStartTime: 0,
+      timeSurvived: 0,
+      shotsHit: 0,
+      shotsFired: 0,
+      isPaused: false,
+    }
+  }
+
+  // Create starfield background
+  private createStarfield(): Star[] {
+    const stars: Star[] = []
+    for (let i = 0; i < STARFIELD.count; i++) {
+      stars.push({
+        x: Math.random() * CANVAS.width,
+        y: Math.random() * CANVAS.height,
+        size: STARFIELD.minSize + Math.random() * (STARFIELD.maxSize - STARFIELD.minSize),
+        brightness: 0.3 + Math.random() * 0.7,
+        speed: STARFIELD.minSpeed + Math.random() * (STARFIELD.maxSpeed - STARFIELD.minSpeed),
+      })
+    }
+    return stars
+  }
+
+  // Create bunkers
+  private createBunkers(): BunkerState[] {
+    const bunkers: BunkerState[] = []
+    const spacing = CANVAS.width / (BUNKER.count + 1)
+
+    for (let i = 0; i < BUNKER.count; i++) {
+      const cols = Math.floor(BUNKER.width / BUNKER.cellSize)
+      const rows = Math.floor(BUNKER.height / BUNKER.cellSize)
+      const cells: BunkerCell[][] = []
+
+      for (let row = 0; row < rows; row++) {
+        cells[row] = []
+        for (let col = 0; col < cols; col++) {
+          // Create arch shape (cut out bottom middle)
+          const isBottomMiddle =
+            row >= rows - 3 &&
+            col >= Math.floor(cols / 3) &&
+            col < Math.floor((cols * 2) / 3)
+
+          cells[row][col] = {
+            health: isBottomMiddle ? 0 : BUNKER.cellHealth,
+            isDestroyed: isBottomMiddle,
+          }
+        }
+      }
+
+      bunkers.push({
+        position: { x: spacing * (i + 1), y: BUNKER.yPosition },
+        cells,
+        width: BUNKER.width,
+        height: BUNKER.height,
+        cellSize: BUNKER.cellSize,
+      })
+    }
+
+    return bunkers
+  }
+
+  // Load settings from localStorage
+  private loadSettings(): GameSettings {
+    if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS }
+
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.settings)
+      if (stored) {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+      }
+    } catch (e) {
+      console.warn('Failed to load settings:', e)
+    }
+    return { ...DEFAULT_SETTINGS }
+  }
+
+  // Save settings to localStorage
+  private saveSettings(): void {
+    if (typeof window === 'undefined') return
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(this.settings))
+    } catch (e) {
+      console.warn('Failed to save settings:', e)
+    }
+  }
+
+  // Load high score
+  private loadHighScore(): number {
+    if (typeof window === 'undefined') return 0
+
+    try {
+      return parseInt(localStorage.getItem(STORAGE_KEYS.highScore) || '0', 10)
+    } catch {
+      return 0
+    }
+  }
+
+  // Save high score
+  private saveHighScore(score: number): void {
+    if (typeof window === 'undefined') return
+    if (score <= this.gameState.highScore) return
+
+    this.gameState.highScore = score
+    try {
+      localStorage.setItem(STORAGE_KEYS.highScore, score.toString())
+    } catch (e) {
+      console.warn('Failed to save high score:', e)
+    }
+  }
+
+  // Start the game loop
+  start(): void {
+    this.lastTime = performance.now()
+    this.loop(this.lastTime)
+  }
+
+  // Main game loop with fixed timestep
+  private loop = (currentTime: number): void => {
+    const frameTime = Math.min(currentTime - this.lastTime, TIMING.maxFrameTime)
+    this.lastTime = currentTime
+    this.accumulator += frameTime
+
+    // Fixed timestep updates
+    while (this.accumulator >= TIMING.fixedTimestep) {
+      this.fixedUpdate(TIMING.fixedTimestep)
+      this.accumulator -= TIMING.fixedTimestep
+    }
+
+    // Interpolation factor for smooth rendering
+    const alpha = this.accumulator / TIMING.fixedTimestep
+    this.render(alpha, currentTime)
+
+    // Notify state listeners
+    this.stateCallbacks.forEach((cb) => cb(this.gameState))
+
+    this.animationId = requestAnimationFrame(this.loop)
+  }
+
+  // Fixed timestep update
+  private fixedUpdate(dt: number): void {
+    const screen = this.gameState.screen
+    const currentTime = performance.now()
+
+    // Update starfield (always)
+    this.updateStars(dt)
+
+    // Update screen shake (always)
+    this.updateScreenShake(dt)
+
+    // Screen-specific updates
+    switch (screen) {
+      case 'menu':
+      case 'howTo':
+      case 'settings':
+        this.handleMenuInput()
+        break
+
+      case 'playing':
+        this.gameState.gameTime += dt
+        this.gameState.timeSurvived = currentTime - this.gameState.gameStartTime
+        this.updatePlaying(dt, currentTime)
+        break
+
+      case 'waveIntro':
+        this.updateWaveIntro(dt)
+        break
+
+      case 'bossIntro':
+        this.updateBossIntro(dt)
+        break
+
+      case 'bossFight':
+        this.gameState.gameTime += dt
+        this.gameState.timeSurvived = currentTime - this.gameState.gameStartTime
+        this.updateBossFight(dt, currentTime)
+        break
+
+      case 'gameOver':
+        this.handleGameOverInput()
+        break
+    }
+  }
+
+  // Update starfield
+  private updateStars(dt: number): void {
+    const dtSeconds = dt / 1000
+    for (const star of this.gameState.stars) {
+      star.y += star.speed * dtSeconds
+      if (star.y > CANVAS.height) {
+        star.y = 0
+        star.x = Math.random() * CANVAS.width
+      }
+    }
+  }
+
+  // Update screen shake
+  private updateScreenShake(dt: number): void {
+    if (this.gameState.screenShake) {
+      this.gameState.screenShake.elapsed += dt
+      if (this.gameState.screenShake.elapsed >= this.gameState.screenShake.duration) {
+        this.gameState.screenShake = null
+      }
+    }
+  }
+
+  // Update during main playing phase
+  private updatePlaying(dt: number, currentTime: number): void {
+    const input = this.inputManager.getState()
+
+    // Check for pause
+    if (this.inputManager.consumePause()) {
+      // Could implement pause here
+      return
+    }
+
+    // Update systems
+    this.playerSystem.update(dt, this.gameState, input)
+    this.formationSystem.update(dt, this.gameState)
+    this.projectileSystem.update(dt, this.gameState)
+    this.collisionSystem.update(this.gameState)
+    this.particleSystem.update(dt, this.gameState)
+    this.ufoSystem.update(dt, this.gameState)
+    this.asteroidSystem.update(dt, this.gameState)
+
+    // Try to spawn UFO and asteroids
+    this.ufoSystem.trySpawn(this.gameState, currentTime)
+    this.asteroidSystem.trySpawn(this.gameState, currentTime)
+
+    // Check for wave completion
+    this.checkWaveCompletion()
+
+    // Check for game over
+    this.checkGameOver()
+
+    // Reset transient input
+    this.inputManager.resetActionInput()
+  }
+
+  // Update during boss fight
+  private updateBossFight(dt: number, currentTime: number): void {
+    const input = this.inputManager.getState()
+
+    this.playerSystem.update(dt, this.gameState, input)
+    this.bossSystem.update(dt, this.gameState)
+    this.projectileSystem.update(dt, this.gameState)
+    this.collisionSystem.update(this.gameState)
+    this.particleSystem.update(dt, this.gameState)
+
+    // Check boss death
+    if (this.gameState.boss && !this.gameState.boss.isActive) {
+      this.onBossDefeated()
+    }
+
+    // Check game over
+    this.checkGameOver()
+
+    this.inputManager.resetActionInput()
+  }
+
+  // Update wave intro screen
+  private updateWaveIntro(dt: number): void {
+    this.gameState.waveTransitionTimer += dt
+    if (this.gameState.waveTransitionTimer >= TRANSITIONS.waveIntroDuration) {
+      this.gameState.waveTransitionTimer = 0
+      this.stateMachine.resumePlaying()
+    }
+  }
+
+  // Update boss intro screen
+  private updateBossIntro(dt: number): void {
+    this.gameState.waveTransitionTimer += dt
+    if (this.gameState.waveTransitionTimer >= TRANSITIONS.bossIntroDuration) {
+      this.gameState.waveTransitionTimer = 0
+      this.gameState.boss = this.bossSystem.createBoss(this.gameState.wave)
+      this.stateMachine.startBossFight()
+    }
+  }
+
+  // Check for wave completion
+  private checkWaveCompletion(): void {
+    const formation = this.gameState.formation
+    if (!formation) return
+
+    if (this.formationSystem.isFormationEmpty(formation)) {
+      this.onWaveComplete()
+    }
+  }
+
+  // Handle wave completion
+  private onWaveComplete(): void {
+    // Wave bonus
+    this.gameState.score += SCORING.waveBonus * this.gameState.wave
+
+    this.audioManager.playWaveComplete()
+
+    // Prepare next wave
+    const nextWave = this.gameState.wave + 1
+    this.prepareWave(nextWave)
+  }
+
+  // Handle boss defeated
+  private onBossDefeated(): void {
+    // Clear boss projectiles
+    this.gameState.enemyProjectiles = []
+
+    // Wave bonus
+    this.gameState.score += SCORING.waveBonus * this.gameState.wave
+
+    // Prepare next wave
+    const nextWave = this.gameState.wave + 1
+    this.prepareWave(nextWave)
+  }
+
+  // Prepare a new wave
+  private prepareWave(waveNumber: number): void {
+    this.gameState.wave = waveNumber
+    this.gameState.waveTransitionTimer = 0
+    this.gameState.isBossWave = this.bossSystem.isBossWave(waveNumber)
+
+    // Clear projectiles
+    this.projectileSystem.clearAll(this.gameState)
+    this.ufoSystem.clear(this.gameState)
+
+    if (this.gameState.isBossWave) {
+      // Boss wave
+      this.gameState.formation = null
+      this.asteroidSystem.clear(this.gameState)
+      this.stateMachine.startBossIntro(waveNumber)
+    } else {
+      // Normal wave
+      this.gameState.formation = this.formationSystem.createFormation(waveNumber)
+      this.gameState.boss = null
+      this.stateMachine.startWaveIntro(waveNumber)
+    }
+  }
+
+  // Check for game over
+  private checkGameOver(): void {
+    if (this.gameState.player.lives <= 0 && !this.gameState.player.isRespawning) {
+      this.triggerGameOver()
+    }
+  }
+
+  // Trigger game over
+  private triggerGameOver(): void {
+    this.saveHighScore(this.gameState.score)
+    this.audioManager.playGameOver()
+    this.stateMachine.gameOver(
+      this.gameState.score,
+      this.gameState.wave,
+      this.gameState.timeSurvived
+    )
+  }
+
+  // Handle menu input
+  private handleMenuInput(): void {
+    // Menu input is handled by React components
+  }
+
+  // Handle game over input
+  private handleGameOverInput(): void {
+    // Game over input is handled by React components
+  }
+
+  // Render
+  private render(alpha: number, currentTime: number): void {
+    const screen = this.gameState.screen
+
+    // Always render game elements for background
+    if (screen === 'playing' || screen === 'bossFight') {
+      this.renderer.render(this.gameState, alpha)
+    } else {
+      // Just render stars and any visible game elements
+      this.ctx.fillStyle = '#0a0a1a'
+      this.ctx.fillRect(0, 0, CANVAS.width, CANVAS.height)
+      this.renderer.render(this.gameState, alpha)
+    }
+
+    // Screen-specific overlays are handled by React components
+  }
+
+  // ========== PUBLIC API ==========
+
+  // Start a new game
+  startGame(): void {
+    const now = performance.now()
+
+    // Reset state
+    this.gameState = {
+      ...this.createInitialState(),
+      highScore: this.gameState.highScore,
+      gameStartTime: now,
+      lastUFOSpawn: now,
+    }
+
+    this.gameState.player = this.playerSystem.createPlayer()
+    this.gameState.bunkers = this.createBunkers()
+
+    // Start wave 1
+    this.prepareWave(1)
+    this.stateMachine.forceTransition('waveIntro')
+  }
+
+  // Navigate to screen
+  navigateTo(screen: GameScreen): void {
+    switch (screen) {
+      case 'howTo':
+        this.stateMachine.showHowTo()
+        break
+      case 'settings':
+        this.stateMachine.showSettings()
+        break
+      case 'menu':
+        this.stateMachine.backToMenu()
+        break
+      case 'playing':
+        this.startGame()
+        break
+    }
+    this.audioManager.playMenuSelect()
+  }
+
+  // Update settings (full object)
+  updateSettings(newSettings: GameSettings): void {
+    const oldSettings = this.settings
+    this.settings = { ...newSettings }
+    this.saveSettings()
+
+    // Apply changed settings
+    if (oldSettings.soundEnabled !== newSettings.soundEnabled) {
+      this.audioManager.setEnabled(newSettings.soundEnabled)
+    }
+    if (oldSettings.reducedMotion !== newSettings.reducedMotion) {
+      this.audioManager.setReducedMotion(newSettings.reducedMotion)
+      this.renderer.setReducedMotion(newSettings.reducedMotion)
+    }
+    if (
+      oldSettings.controlScheme !== newSettings.controlScheme ||
+      oldSettings.autoFireMobile !== newSettings.autoFireMobile
+    ) {
+      this.inputManager.updateSettings(this.settings)
+    }
+  }
+
+  // Update single setting
+  updateSetting<K extends keyof GameSettings>(
+    key: K,
+    value: GameSettings[K]
+  ): void {
+    this.settings[key] = value
+    this.saveSettings()
+
+    // Apply settings
+    if (key === 'soundEnabled') {
+      this.audioManager.setEnabled(value as boolean)
+    }
+    if (key === 'reducedMotion') {
+      this.audioManager.setReducedMotion(value as boolean)
+      this.renderer.setReducedMotion(value as boolean)
+    }
+    if (key === 'controlScheme' || key === 'autoFireMobile') {
+      this.inputManager.updateSettings(this.settings)
+    }
+  }
+
+  // Set joystick delta from external control
+  setJoystickDelta(delta: { x: number; y: number } | null): void {
+    const input = this.inputManager.getState()
+    input.joystickDelta = delta
+  }
+
+  // Trigger shoot from external control
+  triggerShoot(): void {
+    const input = this.inputManager.getState()
+    input.shoot = true
+  }
+
+  // Get current settings
+  getSettings(): GameSettings {
+    return { ...this.settings }
+  }
+
+  // Get current game state
+  getState(): GameState {
+    return this.gameState
+  }
+
+  // Get current screen
+  getScreen(): GameScreen {
+    return this.stateMachine.getScreen()
+  }
+
+  // Subscribe to state changes
+  onStateChange(callback: GameStateCallback): () => void {
+    this.stateCallbacks.push(callback)
+    return () => {
+      this.stateCallbacks = this.stateCallbacks.filter((cb) => cb !== callback)
+    }
+  }
+
+  // Subscribe to screen changes
+  onScreenChange(callback: ScreenChangeCallback): () => void {
+    this.screenCallbacks.push(callback)
+    return () => {
+      this.screenCallbacks = this.screenCallbacks.filter((cb) => cb !== callback)
+    }
+  }
+
+  // Trigger screen shake
+  triggerScreenShake(
+    type: 'playerHit' | 'invaderKill' | 'bossHit' | 'bossDeath'
+  ): void {
+    const config = SCREEN_SHAKE[type]
+    this.gameState.screenShake = {
+      intensity: config.intensity,
+      duration: config.duration,
+      elapsed: 0,
+    }
+  }
+
+  // Cleanup
+  destroy(): void {
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId)
+      this.animationId = null
+    }
+
+    this.inputManager.destroy()
+    this.audioManager.destroy()
+    this.ufoSystem.destroy()
+  }
+}
