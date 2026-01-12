@@ -9,8 +9,7 @@ import { CANVAS, COLORS } from '@/lib/game/config'
 import type { GameState, GameScreen } from '@/lib/game/types'
 import { useSettings } from '@/contexts/SettingsContext'
 import { GameUI } from './GameUI'
-import { VirtualJoystick } from './controls/VirtualJoystick'
-import { FireButton } from './controls/FireButton'
+import { MobileControls } from './controls/MobileControls'
 
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -121,27 +120,28 @@ export function GameCanvas() {
     }
   }, [handleResize]) // Only depends on handleResize (which is stable via useCallback)
 
-  // Handle virtual joystick input
-  const handleJoystickMove = useCallback(
-    (delta: { x: number; y: number } | null) => {
-      if (engineRef.current) {
-        engineRef.current.setJoystickDelta(delta)
-      }
-    },
-    []
-  )
-
-  // Handle fire button
-  const handleFire = useCallback(() => {
+  // Handle mobile controls
+  const handleMoveLeft = useCallback((active: boolean) => {
     if (engineRef.current) {
-      engineRef.current.triggerShoot()
+      engineRef.current.setMoveLeft(active)
+    }
+  }, [])
+
+  const handleMoveRight = useCallback((active: boolean) => {
+    if (engineRef.current) {
+      engineRef.current.setMoveRight(active)
+    }
+  }, [])
+
+  const handleShoot = useCallback((active: boolean) => {
+    if (engineRef.current) {
+      engineRef.current.setShoot(active)
     }
   }, [])
 
   // Determine if we should show mobile controls
   const showMobileControls =
     isMobile &&
-    settings.controlScheme === 'joystick' &&
     (currentScreen === 'playing' || currentScreen === 'bossFight')
 
   return (
@@ -170,31 +170,13 @@ export function GameCanvas() {
           />
         )}
 
-      {/* Mobile Controls - Joystick Mode */}
-      {showMobileControls && (
-        <>
-          <div className="absolute left-4 bottom-4 z-10">
-            <VirtualJoystick onMove={handleJoystickMove} size={100} />
-          </div>
-          <div className="absolute right-4 bottom-4 z-10">
-            <FireButton
-              onFire={handleFire}
-              size={70}
-              autoFire={settings.autoFireMobile}
-            />
-          </div>
-        </>
-      )}
-
-      {/* Mobile touch hint for drag mode */}
-      {isMobile &&
-        settings.controlScheme === 'drag' &&
-        currentScreen === 'playing' &&
-        gameState?.wave === 1 && (
-          <div className="absolute bottom-20 left-0 right-0 text-center text-white/50 text-sm pointer-events-none">
-            Drag left side to move • Tap right side to fire
-          </div>
-        )}
+      {/* Mobile Controls */}
+      <MobileControls
+        onMoveLeft={handleMoveLeft}
+        onMoveRight={handleMoveRight}
+        onShoot={handleShoot}
+        visible={showMobileControls}
+      />
 
       {/* Pause indicator */}
       {gameState?.isPaused && currentScreen === 'playing' && (

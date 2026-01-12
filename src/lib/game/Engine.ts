@@ -775,6 +775,24 @@ export class GameEngine {
     input.shoot = true
   }
 
+  // Set shoot state from external control (for hold-to-shoot)
+  setShoot(active: boolean): void {
+    const input = this.inputManager.getState()
+    input.touchShoot = active
+  }
+
+  // Set move left from external control
+  setMoveLeft(active: boolean): void {
+    const input = this.inputManager.getState()
+    input.moveLeft = active
+  }
+
+  // Set move right from external control
+  setMoveRight(active: boolean): void {
+    const input = this.inputManager.getState()
+    input.moveRight = active
+  }
+
   // Get current settings
   getSettings(): GameSettings {
     return { ...this.settings }
