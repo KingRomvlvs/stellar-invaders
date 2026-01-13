@@ -1,1 +1,7 @@
-{"functions": "convex/", "node": {"externalPackages": ["convex"]}}
+{
+  "node": {
+    "externalPackages": [
+      "convex"
+    ]
+  }
+}
