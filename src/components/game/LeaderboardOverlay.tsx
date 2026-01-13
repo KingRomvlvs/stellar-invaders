@@ -107,28 +107,28 @@ function LeaderboardWithConvex({
       {/* Name Entry - only show if qualifies and hasn't submitted */}
       {qualifies && !hasSubmitted && (
         <div className="mb-6">
-          <label className="block text-sm text-white/60 mb-2 uppercase tracking-wider">
-            Enter Your Name
+          <label className="block text-sm text-white/50 mb-3 uppercase tracking-widest text-center">
+            You made the leaderboard!
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 12))}
             onKeyDown={handleKeyDown}
-            placeholder="Your name..."
+            placeholder="Enter your name..."
             maxLength={12}
             autoFocus
-            className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white text-center font-mono text-lg focus:outline-none focus:border-white/50 transition-colors"
+            className="w-full px-4 py-4 rounded-xl bg-white/5 border border-white/20 text-white text-center font-mono text-xl focus:outline-none focus:border-white/40 transition-colors"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           />
           <button
             onClick={handleSubmit}
             disabled={!name.trim() || isSubmitting}
-            className="w-full mt-3 px-6 py-3 rounded-full font-medium uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full mt-4 px-6 py-4 rounded-full font-medium uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg"
             style={{
-              backgroundColor: COLORS.player,
+              backgroundColor: COLORS.ufo,
               color: 'black',
-              boxShadow: `0 0 20px ${COLORS.player}40`,
+              boxShadow: `0 0 20px ${COLORS.ufo}40`,
             }}
           >
             {isSubmitting ? 'Submitting...' : 'Submit Score'}
@@ -139,10 +139,11 @@ function LeaderboardWithConvex({
       {/* Success message */}
       {hasSubmitted && (
         <div
-          className="mb-6 text-center py-3 rounded-lg"
+          className="mb-6 text-center py-4 rounded-xl text-lg font-medium"
           style={{
             backgroundColor: 'rgba(0, 255, 136, 0.1)',
             color: COLORS.player,
+            border: `1px solid ${COLORS.player}40`,
           }}
         >
           Score submitted!
@@ -150,36 +151,36 @@ function LeaderboardWithConvex({
       )}
 
       {/* Leaderboard */}
-      <div className="mb-6">
-        <h3 className="text-sm text-white/60 uppercase tracking-wider mb-3 text-center">
-          Top Scores
+      <div className="mb-4">
+        <h3 className="text-sm text-white/50 uppercase tracking-widest mb-4 text-center">
+          Leaderboard
         </h3>
         <div
-          className="rounded-lg overflow-hidden"
-          style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}
+          className="rounded-xl overflow-hidden border border-white/10"
+          style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}
         >
           {topScores === undefined ? (
-            <div className="text-center py-8 text-white/40">Loading...</div>
+            <div className="text-center py-6 text-white/40">Loading...</div>
           ) : topScores.length === 0 ? (
-            <div className="text-center py-8 text-white/40">
+            <div className="text-center py-6 text-white/40">
               No scores yet. Be the first!
             </div>
           ) : (
             <div className="divide-y divide-white/5">
-              {topScores.map((entry, index) => (
+              {topScores.slice(0, 5).map((entry, index) => (
                 <div
                   key={entry._id}
                   className="flex items-center justify-between px-4 py-3"
                   style={{
                     backgroundColor:
                       entry.score === score && hasSubmitted
-                        ? 'rgba(0, 255, 136, 0.1)'
+                        ? 'rgba(0, 255, 136, 0.15)'
                         : 'transparent',
                   }}
                 >
                   <div className="flex items-center gap-3">
                     <span
-                      className="w-6 text-center font-mono"
+                      className="w-8 text-center font-bold text-lg"
                       style={{
                         color:
                           index === 0
@@ -188,17 +189,19 @@ function LeaderboardWithConvex({
                               ? '#C0C0C0'
                               : index === 2
                                 ? '#CD7F32'
-                                : '#666',
+                                : 'rgba(255,255,255,0.3)',
                       }}
                     >
                       {index + 1}
                     </span>
-                    <span className="text-white font-medium">{entry.name}</span>
+                    <span className="text-white font-medium text-lg">
+                      {entry.name}
+                    </span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-white/40 text-sm">W{entry.wave}</span>
+                    <span className="text-white/30 text-sm">W{entry.wave}</span>
                     <span
-                      className="font-mono tabular-nums"
+                      className="font-mono tabular-nums text-lg font-bold"
                       style={{ color: COLORS.player }}
                     >
                       {entry.score.toLocaleString()}
@@ -241,24 +244,29 @@ export function LeaderboardOverlay({
   if (!visible) return null
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-auto">
-      <div
-        className="w-full max-w-md mx-4 rounded-2xl backdrop-blur-xl p-6"
-        style={{
-          backgroundColor: 'rgba(10, 10, 26, 0.95)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 0 40px rgba(0, 255, 136, 0.1)',
-        }}
-      >
+    <div
+      className="absolute inset-0 flex items-center justify-center z-50 pointer-events-auto"
+      style={{ backgroundColor: COLORS.background }}
+    >
+      <div className="w-full max-w-md mx-4 p-6">
         {/* Header */}
-        <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold mb-2" style={{ color: COLORS.boss }}>
+        <div className="text-center mb-8">
+          <h2
+            className="text-5xl font-bold mb-4 tracking-wider"
+            style={{
+              color: COLORS.boss,
+              textShadow: `0 0 30px ${COLORS.boss}`,
+            }}
+          >
             GAME OVER
           </h2>
-          <div className="text-4xl font-mono" style={{ color: COLORS.player }}>
+          <div
+            className="text-6xl font-mono tabular-nums mb-2"
+            style={{ color: COLORS.player }}
+          >
             {score.toLocaleString()}
           </div>
-          <div className="text-sm text-white/60 mt-1">Wave {wave}</div>
+          <div className="text-lg text-white/60">Wave {wave}</div>
         </div>
 
         {/* Leaderboard content - with error boundary */}
@@ -271,17 +279,17 @@ export function LeaderboardOverlay({
         )}
 
         {/* Action buttons */}
-        <div className="flex gap-3">
+        <div className="flex gap-4 mt-8">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-3 rounded-full bg-white/10 text-white font-medium uppercase tracking-wider transition-colors hover:bg-white/20 active:bg-white/30"
+            className="flex-1 px-6 py-4 rounded-full bg-white/10 text-white font-medium uppercase tracking-wider transition-colors hover:bg-white/20 active:bg-white/30 text-lg"
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             Menu
           </button>
           <button
             onClick={onPlayAgain}
-            className="flex-1 px-4 py-3 rounded-full font-medium uppercase tracking-wider transition-all"
+            className="flex-1 px-6 py-4 rounded-full font-medium uppercase tracking-wider transition-all text-lg"
             style={{
               backgroundColor: COLORS.player,
               color: 'black',
