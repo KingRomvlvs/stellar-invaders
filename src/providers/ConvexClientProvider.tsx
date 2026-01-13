@@ -8,7 +8,11 @@ let convexClient: ConvexReactClient | null = null
 
 function getConvexClient(): ConvexReactClient | null {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL
-  if (!url) return null
+
+  // Only create client if URL is a valid Convex URL
+  if (!url || url.length === 0 || url === 'undefined' || !url.startsWith('https://')) {
+    return null
+  }
 
   if (!convexClient) {
     convexClient = new ConvexReactClient(url)

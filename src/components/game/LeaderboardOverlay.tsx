@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, Component, ReactNode } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { COLORS } from '@/lib/game/config'
@@ -13,8 +13,40 @@ interface LeaderboardOverlayProps {
   onPlayAgain: () => void
 }
 
-// Check if Convex URL is configured
-const isConvexConfigured = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL)
+// Check if Convex URL is configured (must be a valid URL)
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
+const isConvexConfigured = Boolean(
+  convexUrl &&
+  convexUrl.length > 0 &&
+  convexUrl !== 'undefined' &&
+  convexUrl.startsWith('https://')
+)
+
+// Error boundary to catch Convex errors
+class ConvexErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn('Leaderboard error:', error.message)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback
+    }
+    return this.props.children
+  }
+}
 
 // Inner component that uses Convex hooks
 function LeaderboardWithConvex({
@@ -182,7 +214,7 @@ function LeaderboardWithConvex({
   )
 }
 
-// Fallback component when Convex is not configured
+// Fallback component when Convex is not configured or has errors
 function LeaderboardFallback() {
   return (
     <div className="mb-6">
@@ -190,11 +222,9 @@ function LeaderboardFallback() {
         className="text-center py-8 rounded-lg"
         style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}
       >
-        <div className="text-white/40 text-sm">
-          Leaderboard unavailable
-        </div>
+        <div className="text-white/40 text-sm">Leaderboard unavailable</div>
         <div className="text-white/30 text-xs mt-1">
-          Configure Convex to enable online leaderboards
+          Run `npx convex dev` to enable online leaderboards
         </div>
       </div>
     </div>
@@ -231,9 +261,11 @@ export function LeaderboardOverlay({
           <div className="text-sm text-white/60 mt-1">Wave {wave}</div>
         </div>
 
-        {/* Leaderboard content - conditional based on Convex availability */}
+        {/* Leaderboard content - with error boundary */}
         {isConvexConfigured ? (
-          <LeaderboardWithConvex score={score} wave={wave} visible={visible} />
+          <ConvexErrorBoundary fallback={<LeaderboardFallback />}>
+            <LeaderboardWithConvex score={score} wave={wave} visible={visible} />
+          </ConvexErrorBoundary>
         ) : (
           <LeaderboardFallback />
         )}
