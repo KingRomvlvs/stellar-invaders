@@ -175,10 +175,10 @@ export function MobileControls({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 pointer-events-none z-50 pb-safe">
-      <div className="flex justify-between items-end p-4 max-w-3xl mx-auto">
+      <div className="flex justify-between items-end px-3 py-2 max-w-3xl mx-auto">
         {/* Left side - Movement buttons */}
         <div
-          className="pointer-events-auto select-none touch-none flex gap-2"
+          className="pointer-events-auto select-none touch-none flex gap-1"
           onTouchStart={handleMovementTouchStart}
           onTouchMove={handleMovementTouchMove}
           onTouchEnd={handleMovementTouchEnd}
@@ -188,7 +188,7 @@ export function MobileControls({
           <button
             ref={leftButtonRef}
             className={`
-              w-20 h-20 rounded-2xl
+              w-16 h-16 rounded-xl
               bg-white/10 backdrop-blur-sm
               border-2 border-white/30
               flex items-center justify-center
@@ -199,8 +199,8 @@ export function MobileControls({
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             <svg
-              width="32"
-              height="32"
+              width="28"
+              height="28"
               viewBox="0 0 24 24"
               fill="none"
               stroke="white"
@@ -216,7 +216,7 @@ export function MobileControls({
           <button
             ref={rightButtonRef}
             className={`
-              w-20 h-20 rounded-2xl
+              w-16 h-16 rounded-xl
               bg-white/10 backdrop-blur-sm
               border-2 border-white/30
               flex items-center justify-center
@@ -227,8 +227,8 @@ export function MobileControls({
             style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             <svg
-              width="32"
-              height="32"
+              width="28"
+              height="28"
               viewBox="0 0 24 24"
               fill="none"
               stroke="white"
@@ -246,21 +246,25 @@ export function MobileControls({
           ref={fireButtonRef}
           className={`
             pointer-events-auto
-            w-24 h-24 rounded-full
+            w-18 h-18 rounded-full
             bg-red-500/80 backdrop-blur-sm
-            border-4 border-red-300/50
+            border-3 border-red-300/50
             flex items-center justify-center
             active:bg-red-400 active:scale-95
             transition-transform
             select-none touch-none
             shadow-lg shadow-red-500/30
           `}
-          style={{ WebkitTapHighlightColor: 'transparent' }}
+          style={{
+            WebkitTapHighlightColor: 'transparent',
+            width: '72px',
+            height: '72px',
+          }}
           onTouchStart={handleFireTouchStart}
           onTouchEnd={handleFireTouchEnd}
           onTouchCancel={handleFireTouchEnd}
         >
-          <span className="text-white font-bold text-lg tracking-wider">
+          <span className="text-white font-bold text-sm tracking-wider">
             FIRE
           </span>
         </button>

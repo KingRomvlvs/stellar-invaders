@@ -46,58 +46,22 @@ export function GameCanvas() {
       navigator.maxTouchPoints > 0 ||
       window.innerWidth < 768
 
-    // Leave room for mobile controls if on mobile
-    const controlsSpace = isMobileDevice ? 140 : 0
+    // Leave room for mobile controls if on mobile (reduced from 140 to 100)
+    const controlsSpace = isMobileDevice ? 100 : 0
     const availableHeight = containerHeight - controlsSpace
 
-    // Detect portrait mode on mobile (screen is significantly taller than wide)
-    const isPortrait = isMobileDevice && containerHeight > containerWidth * 1.2
+    // Use full width in portrait mode for maximum game size
+    const canvasWidth = containerWidth
+    const canvasHeight = containerWidth / gameAspectRatio
 
-    if (isPortrait) {
-      // In portrait mode, rotate canvas 90 degrees to fill more screen space
-      // After rotation: game width (800) -> visual height, game height (600) -> visual width
-      // So the rotated display aspect ratio is 600:800 = 0.75
-      const rotatedAspectRatio = CANVAS.height / CANVAS.width // 0.75
-
-      let displayWidth: number
-      let displayHeight: number
-
-      // Fit the rotated game (3:4 aspect ratio) into portrait container
-      if (containerWidth / availableHeight > rotatedAspectRatio) {
-        // Container is relatively wider - fit by height
-        displayHeight = availableHeight
-        displayWidth = availableHeight * rotatedAspectRatio
-      } else {
-        // Container is relatively narrower - fit by width
-        displayWidth = containerWidth
-        displayHeight = containerWidth / rotatedAspectRatio
-      }
-
-      // CSS rotation swaps visual dimensions:
-      // - CSS width becomes visual height after -90deg rotation
-      // - CSS height becomes visual width after -90deg rotation
-      canvas.style.width = `${displayHeight}px`
-      canvas.style.height = `${displayWidth}px`
-      canvas.style.transform = 'rotate(-90deg)'
-      canvas.style.transformOrigin = 'center center'
-    } else {
-      // Normal landscape/desktop mode - no rotation
-      let canvasWidth: number
-      let canvasHeight: number
-
-      if (containerWidth / availableHeight > gameAspectRatio) {
-        // Container is wider than game aspect ratio - fit to height
-        canvasHeight = availableHeight
-        canvasWidth = availableHeight * gameAspectRatio
-      } else {
-        // Container is taller than game aspect ratio - fit to width
-        canvasWidth = containerWidth
-        canvasHeight = containerWidth / gameAspectRatio
-      }
-
+    // Check if calculated height fits in available space
+    if (canvasHeight <= availableHeight) {
       canvas.style.width = `${canvasWidth}px`
       canvas.style.height = `${canvasHeight}px`
-      canvas.style.transform = 'none'
+    } else {
+      // Fit to height if width-based sizing is too tall
+      canvas.style.height = `${availableHeight}px`
+      canvas.style.width = `${availableHeight * gameAspectRatio}px`
     }
   }, [])
 
