@@ -56,47 +56,22 @@ export function GameCanvas() {
       'ontouchstart' in window ||
       navigator.maxTouchPoints > 0 ||
       window.innerWidth < 768
-    const isPortraitMode = window.innerHeight > window.innerWidth
+
+    // Leave room for mobile controls if on mobile
+    const controlsSpace = isMobileDevice ? 140 : 0
+    const availableHeight = containerHeight - controlsSpace
 
     let canvasWidth: number
     let canvasHeight: number
 
-    if (isMobileDevice && isPortraitMode) {
-      // Portrait mode on mobile: rotate 90 degrees, so swap dimensions for calculation
-      // The canvas will be rotated, so we calculate as if width is height and vice versa
-      const effectiveWidth = containerHeight
-      const effectiveHeight = containerWidth
-
-      if (effectiveWidth / effectiveHeight > gameAspectRatio) {
-        canvasHeight = effectiveHeight
-        canvasWidth = effectiveHeight * gameAspectRatio
-      } else {
-        canvasWidth = effectiveWidth
-        canvasHeight = effectiveWidth / gameAspectRatio
-      }
-
-      // Leave room for controls at the bottom (which will be on the side after rotation)
-      const controlsSpace = 120
-      const availableHeight = containerHeight - controlsSpace
-
-      if (canvasWidth > availableHeight) {
-        const scale = availableHeight / canvasWidth
-        canvasWidth *= scale
-        canvasHeight *= scale
-      }
+    if (containerWidth / availableHeight > gameAspectRatio) {
+      // Container is wider than game aspect ratio - fit to height
+      canvasHeight = availableHeight
+      canvasWidth = availableHeight * gameAspectRatio
     } else {
-      // Landscape mode or desktop: normal behavior
-      // Leave room for mobile controls if on mobile
-      const controlsSpace = isMobileDevice ? 140 : 0
-      const availableHeight = containerHeight - controlsSpace
-
-      if (containerWidth / availableHeight > gameAspectRatio) {
-        canvasHeight = availableHeight
-        canvasWidth = availableHeight * gameAspectRatio
-      } else {
-        canvasWidth = containerWidth
-        canvasHeight = containerWidth / gameAspectRatio
-      }
+      // Container is taller than game aspect ratio - fit to width
+      canvasWidth = containerWidth
+      canvasHeight = containerWidth / gameAspectRatio
     }
 
     canvas.style.width = `${canvasWidth}px`
@@ -211,22 +186,13 @@ export function GameCanvas() {
     isMobile &&
     (currentScreen === 'playing' || currentScreen === 'bossFight')
 
-  // Check if we should rotate the canvas (portrait mode on mobile)
-  const shouldRotate = isMobile && isPortrait
-
   return (
     <div
       ref={containerRef}
       className="relative w-full h-screen flex items-center justify-center overflow-hidden"
       style={{ backgroundColor: COLORS.background }}
     >
-      <div
-        className="relative flex items-center justify-center"
-        style={{
-          transform: shouldRotate ? 'rotate(90deg)' : 'none',
-          transformOrigin: 'center center',
-        }}
-      >
+      <div className="relative flex items-center justify-center">
         <canvas
           ref={canvasRef}
           width={CANVAS.width}
@@ -254,7 +220,6 @@ export function GameCanvas() {
         onMoveRight={handleMoveRight}
         onShoot={handleShoot}
         visible={showMobileControls}
-        isPortrait={isPortrait}
       />
 
       {/* Pause button for mobile */}
