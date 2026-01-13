@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Roboto_Mono, Roboto } from 'next/font/google'
 import './globals.css'
 import { SettingsProvider } from '@/contexts/SettingsContext'
+import { ConvexClientProvider } from '@/providers/ConvexClientProvider'
 
 const roboto = Roboto({
   variable: '--font-roboto',
@@ -61,7 +62,9 @@ export default function RootLayout({
       <body
         className={`${roboto.variable} ${robotoMono.variable} antialiased bg-[#0a0a1a] overflow-hidden`}
       >
-        <SettingsProvider>{children}</SettingsProvider>
+        <ConvexClientProvider>
+          <SettingsProvider>{children}</SettingsProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   )

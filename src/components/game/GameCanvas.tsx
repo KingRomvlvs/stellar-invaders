@@ -10,6 +10,7 @@ import type { GameState, GameScreen } from '@/lib/game/types'
 import { useSettings } from '@/contexts/SettingsContext'
 import { GameUI } from './GameUI'
 import { MobileControls } from './controls/MobileControls'
+import { LeaderboardOverlay } from './LeaderboardOverlay'
 
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -21,19 +22,25 @@ export function GameCanvas() {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('menu')
   const [isMobile, setIsMobile] = useState(false)
+  const [isPortrait, setIsPortrait] = useState(false)
 
-  // Detect mobile device
+  // Detect mobile device and orientation
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(
+    const checkDevice = () => {
+      const mobile =
         'ontouchstart' in window ||
-          navigator.maxTouchPoints > 0 ||
-          window.innerWidth < 768
-      )
+        navigator.maxTouchPoints > 0 ||
+        window.innerWidth < 768
+      setIsMobile(mobile)
+      setIsPortrait(window.innerHeight > window.innerWidth)
     }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
+    checkDevice()
+    window.addEventListener('resize', checkDevice)
+    window.addEventListener('orientationchange', checkDevice)
+    return () => {
+      window.removeEventListener('resize', checkDevice)
+      window.removeEventListener('orientationchange', checkDevice)
+    }
   }, [])
 
   // Handle canvas resize
@@ -45,16 +52,51 @@ export function GameCanvas() {
     const containerWidth = container.clientWidth
     const containerHeight = container.clientHeight
     const gameAspectRatio = CANVAS.width / CANVAS.height
+    const isMobileDevice =
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      window.innerWidth < 768
+    const isPortraitMode = window.innerHeight > window.innerWidth
 
     let canvasWidth: number
     let canvasHeight: number
 
-    if (containerWidth / containerHeight > gameAspectRatio) {
-      canvasHeight = containerHeight
-      canvasWidth = containerHeight * gameAspectRatio
+    if (isMobileDevice && isPortraitMode) {
+      // Portrait mode on mobile: rotate 90 degrees, so swap dimensions for calculation
+      // The canvas will be rotated, so we calculate as if width is height and vice versa
+      const effectiveWidth = containerHeight
+      const effectiveHeight = containerWidth
+
+      if (effectiveWidth / effectiveHeight > gameAspectRatio) {
+        canvasHeight = effectiveHeight
+        canvasWidth = effectiveHeight * gameAspectRatio
+      } else {
+        canvasWidth = effectiveWidth
+        canvasHeight = effectiveWidth / gameAspectRatio
+      }
+
+      // Leave room for controls at the bottom (which will be on the side after rotation)
+      const controlsSpace = 120
+      const availableHeight = containerHeight - controlsSpace
+
+      if (canvasWidth > availableHeight) {
+        const scale = availableHeight / canvasWidth
+        canvasWidth *= scale
+        canvasHeight *= scale
+      }
     } else {
-      canvasWidth = containerWidth
-      canvasHeight = containerWidth / gameAspectRatio
+      // Landscape mode or desktop: normal behavior
+      // Leave room for mobile controls if on mobile
+      const controlsSpace = isMobileDevice ? 140 : 0
+      const availableHeight = containerHeight - controlsSpace
+
+      if (containerWidth / availableHeight > gameAspectRatio) {
+        canvasHeight = availableHeight
+        canvasWidth = availableHeight * gameAspectRatio
+      } else {
+        canvasWidth = containerWidth
+        canvasHeight = containerWidth / gameAspectRatio
+      }
     }
 
     canvas.style.width = `${canvasWidth}px`
@@ -112,13 +154,20 @@ export function GameCanvas() {
 
     handleResize()
     window.addEventListener('resize', handleResize)
+    window.addEventListener('orientationchange', handleResize)
 
     return () => {
       engine.destroy()
       engineCreatedRef.current = false
       window.removeEventListener('resize', handleResize)
+      window.removeEventListener('orientationchange', handleResize)
     }
   }, [handleResize]) // Only depends on handleResize (which is stable via useCallback)
+
+  // Re-run resize when orientation changes
+  useEffect(() => {
+    handleResize()
+  }, [isPortrait, handleResize])
 
   // Handle mobile controls
   const handleMoveLeft = useCallback((active: boolean) => {
@@ -139,10 +188,31 @@ export function GameCanvas() {
     }
   }, [])
 
+  const handlePause = useCallback(() => {
+    if (engineRef.current) {
+      engineRef.current.togglePause()
+    }
+  }, [])
+
+  const handleGoToMenu = useCallback(() => {
+    if (engineRef.current) {
+      engineRef.current.navigateTo('menu')
+    }
+  }, [])
+
+  const handlePlayAgain = useCallback(() => {
+    if (engineRef.current) {
+      engineRef.current.startGame()
+    }
+  }, [])
+
   // Determine if we should show mobile controls
   const showMobileControls =
     isMobile &&
     (currentScreen === 'playing' || currentScreen === 'bossFight')
+
+  // Check if we should rotate the canvas (portrait mode on mobile)
+  const shouldRotate = isMobile && isPortrait
 
   return (
     <div
@@ -150,15 +220,23 @@ export function GameCanvas() {
       className="relative w-full h-screen flex items-center justify-center overflow-hidden"
       style={{ backgroundColor: COLORS.background }}
     >
-      <canvas
-        ref={canvasRef}
-        width={CANVAS.width}
-        height={CANVAS.height}
-        className="block touch-none"
+      <div
+        className="relative flex items-center justify-center"
         style={{
-          imageRendering: 'pixelated',
+          transform: shouldRotate ? 'rotate(90deg)' : 'none',
+          transformOrigin: 'center center',
         }}
-      />
+      >
+        <canvas
+          ref={canvasRef}
+          width={CANVAS.width}
+          height={CANVAS.height}
+          className="block touch-none"
+          style={{
+            imageRendering: 'pixelated',
+          }}
+        />
+      </div>
 
       {/* HUD Overlay */}
       {gameState &&
@@ -176,24 +254,65 @@ export function GameCanvas() {
         onMoveRight={handleMoveRight}
         onShoot={handleShoot}
         visible={showMobileControls}
+        isPortrait={isPortrait}
       />
 
-      {/* Pause indicator */}
-      {gameState?.isPaused && currentScreen === 'playing' && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <div className="text-center">
-            <div
-              className="text-4xl font-bold mb-4"
-              style={{ color: COLORS.player }}
+      {/* Pause button for mobile */}
+      {isMobile &&
+        (currentScreen === 'playing' || currentScreen === 'bossFight') &&
+        !gameState?.isPaused && (
+          <button
+            onClick={handlePause}
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 z-50 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/30 flex items-center justify-center active:bg-white/30 transition-colors"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="white"
             >
-              PAUSED
-            </div>
-            <div className="text-white/60 text-sm">
-              Press ESC or P to resume
+              <rect x="6" y="4" width="4" height="16" />
+              <rect x="14" y="4" width="4" height="16" />
+            </svg>
+          </button>
+        )}
+
+      {/* Pause overlay */}
+      {gameState?.isPaused &&
+        (currentScreen === 'playing' || currentScreen === 'bossFight') && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-40">
+            <div className="text-center">
+              <div
+                className="text-4xl font-bold mb-4"
+                style={{ color: COLORS.player }}
+              >
+                PAUSED
+              </div>
+              <div className="text-white/60 text-sm mb-6">
+                {isMobile ? 'Tap to resume' : 'Press ESC or P to resume'}
+              </div>
+              {isMobile && (
+                <button
+                  onClick={handlePause}
+                  className="px-6 py-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/30 text-white font-medium uppercase tracking-wider active:bg-white/30 transition-colors"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  Resume
+                </button>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+      {/* Leaderboard overlay for game over */}
+      <LeaderboardOverlay
+        visible={currentScreen === 'gameOver'}
+        score={gameState?.score ?? 0}
+        wave={gameState?.wave ?? 1}
+        onClose={handleGoToMenu}
+        onPlayAgain={handlePlayAgain}
+      />
     </div>
   )
 }

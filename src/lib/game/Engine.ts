@@ -376,9 +376,12 @@ export class GameEngine {
 
     // Check for pause
     if (this.inputManager.consumePause()) {
-      // Could implement pause here
+      this.togglePause()
       return
     }
+
+    // Don't update if paused
+    if (this.gameState.isPaused) return
 
     // Update systems
     this.playerSystem.update(dt, this.gameState, input)
@@ -407,6 +410,15 @@ export class GameEngine {
   // Update during boss fight
   private updateBossFight(dt: number, currentTime: number): void {
     const input = this.inputManager.getState()
+
+    // Check for pause
+    if (this.inputManager.consumePause()) {
+      this.togglePause()
+      return
+    }
+
+    // Don't update if paused
+    if (this.gameState.isPaused) return
 
     this.playerSystem.update(dt, this.gameState, input)
     this.bossSystem.update(dt, this.gameState)
@@ -791,6 +803,25 @@ export class GameEngine {
   setMoveRight(active: boolean): void {
     const input = this.inputManager.getState()
     input.moveRight = active
+  }
+
+  // Toggle pause state
+  togglePause(): void {
+    const screen = this.gameState.screen
+    // Only allow pause during gameplay
+    if (screen === 'playing' || screen === 'bossFight') {
+      this.gameState.isPaused = !this.gameState.isPaused
+      if (this.gameState.isPaused) {
+        this.audioManager.pauseMusic()
+      } else {
+        this.audioManager.resumeMusic()
+      }
+    }
+  }
+
+  // Check if game is paused
+  isPaused(): boolean {
+    return this.gameState.isPaused
   }
 
   // Get current settings

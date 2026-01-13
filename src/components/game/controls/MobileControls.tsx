@@ -7,6 +7,7 @@ interface MobileControlsProps {
   onMoveRight: (active: boolean) => void
   onShoot: (active: boolean) => void
   visible: boolean
+  isPortrait?: boolean
 }
 
 export function MobileControls({
@@ -14,6 +15,7 @@ export function MobileControls({
   onMoveRight,
   onShoot,
   visible,
+  isPortrait = false,
 }: MobileControlsProps) {
   const leftButtonRef = useRef<HTMLButtonElement>(null)
   const rightButtonRef = useRef<HTMLButtonElement>(null)
@@ -155,72 +157,143 @@ export function MobileControls({
 
   if (!visible) return null
 
+  // In portrait mode with rotated game:
+  // - Game is rotated 90° clockwise
+  // - Game's left/right becomes screen's down/up
+  // - Show up/down arrows that map to right/left movement
+  // Up arrow → move right (ship goes up visually)
+  // Down arrow → move left (ship goes down visually)
+
   return (
     <div className="fixed bottom-0 left-0 right-0 pointer-events-none z-50 pb-safe">
       <div className="flex justify-between items-end p-4 max-w-3xl mx-auto">
         {/* Left side - Movement buttons */}
         <div
-          className="pointer-events-auto flex gap-2 select-none touch-none"
+          className={`pointer-events-auto select-none touch-none ${
+            isPortrait ? 'flex flex-col gap-2' : 'flex gap-2'
+          }`}
           onTouchStart={handleMovementTouchStart}
           onTouchMove={handleMovementTouchMove}
           onTouchEnd={handleMovementTouchEnd}
           onTouchCancel={handleMovementTouchEnd}
         >
-          {/* Left button */}
-          <button
-            ref={leftButtonRef}
-            className={`
-              w-20 h-20 rounded-2xl
-              bg-white/10 backdrop-blur-sm
-              border-2 border-white/30
-              flex items-center justify-center
-              active:bg-white/30 active:scale-95
-              transition-transform
-              select-none touch-none
-            `}
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
+          {isPortrait ? (
+            <>
+              {/* Up button (moves ship right/up in rotated game) */}
+              <button
+                ref={rightButtonRef}
+                className={`
+                  w-20 h-20 rounded-2xl
+                  bg-white/10 backdrop-blur-sm
+                  border-2 border-white/30
+                  flex items-center justify-center
+                  active:bg-white/30 active:scale-95
+                  transition-transform
+                  select-none touch-none
+                `}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="18 15 12 9 6 15" />
+                </svg>
+              </button>
 
-          {/* Right button */}
-          <button
-            ref={rightButtonRef}
-            className={`
-              w-20 h-20 rounded-2xl
-              bg-white/10 backdrop-blur-sm
-              border-2 border-white/30
-              flex items-center justify-center
-              active:bg-white/30 active:scale-95
-              transition-transform
-              select-none touch-none
-            `}
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
+              {/* Down button (moves ship left/down in rotated game) */}
+              <button
+                ref={leftButtonRef}
+                className={`
+                  w-20 h-20 rounded-2xl
+                  bg-white/10 backdrop-blur-sm
+                  border-2 border-white/30
+                  flex items-center justify-center
+                  active:bg-white/30 active:scale-95
+                  transition-transform
+                  select-none touch-none
+                `}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Left button */}
+              <button
+                ref={leftButtonRef}
+                className={`
+                  w-20 h-20 rounded-2xl
+                  bg-white/10 backdrop-blur-sm
+                  border-2 border-white/30
+                  flex items-center justify-center
+                  active:bg-white/30 active:scale-95
+                  transition-transform
+                  select-none touch-none
+                `}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+
+              {/* Right button */}
+              <button
+                ref={rightButtonRef}
+                className={`
+                  w-20 h-20 rounded-2xl
+                  bg-white/10 backdrop-blur-sm
+                  border-2 border-white/30
+                  flex items-center justify-center
+                  active:bg-white/30 active:scale-95
+                  transition-transform
+                  select-none touch-none
+                `}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Right side - Fire button */}

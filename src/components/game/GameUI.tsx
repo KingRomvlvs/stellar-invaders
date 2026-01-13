@@ -13,7 +13,7 @@ interface GameUIProps {
 }
 
 export function GameUI({ gameState, highScore, isBossFight }: GameUIProps) {
-  const { score, wave, player, formation } = gameState
+  const { score, wave, player, formation, activePowerUps } = gameState
 
   // Calculate invaders remaining
   const invadersRemaining = formation?.activeInvaders ?? 0
@@ -23,20 +23,41 @@ export function GameUI({ gameState, highScore, isBossFight }: GameUIProps) {
     <div className="absolute inset-0 pointer-events-none select-none">
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-3 sm:p-4 text-white font-light">
-        {/* Score */}
-        <div className="flex flex-col items-start">
-          <span className="text-xs sm:text-sm text-white/60 uppercase tracking-wider">
-            Score
-          </span>
-          <span
-            className="text-xl sm:text-3xl font-mono tabular-nums"
-            style={{ color: COLORS.player }}
-          >
-            {score.toString().padStart(6, '0')}
-          </span>
+        {/* Left section: Score + Lives */}
+        <div className="flex flex-col items-start gap-2">
+          {/* Score */}
+          <div className="flex flex-col items-start">
+            <span className="text-xs sm:text-sm text-white/60 uppercase tracking-wider">
+              Score
+            </span>
+            <span
+              className="text-xl sm:text-3xl font-mono tabular-nums"
+              style={{ color: COLORS.player }}
+            >
+              {score.toString().padStart(6, '0')}
+            </span>
+          </div>
+
+          {/* Lives */}
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-4 h-4 sm:w-5 sm:h-5 transition-opacity ${
+                  i < player.lives ? 'opacity-100' : 'opacity-20'
+                }`}
+                style={{
+                  backgroundColor: i < player.lives ? COLORS.player : '#333',
+                  boxShadow:
+                    i < player.lives ? `0 0 8px ${COLORS.player}` : 'none',
+                  clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
+                }}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* Wave */}
+        {/* Center section: Wave */}
         <div className="flex flex-col items-center">
           <span
             className="text-xs sm:text-sm uppercase tracking-wider"
@@ -57,7 +78,7 @@ export function GameUI({ gameState, highScore, isBossFight }: GameUIProps) {
           )}
         </div>
 
-        {/* High Score */}
+        {/* Right section: High Score */}
         <div className="flex flex-col items-end">
           <span className="text-xs sm:text-sm text-white/60 uppercase tracking-wider">
             Best
@@ -71,27 +92,46 @@ export function GameUI({ gameState, highScore, isBossFight }: GameUIProps) {
         </div>
       </div>
 
-      {/* Bottom bar */}
+      {/* Bottom bar - Status indicators and active power-ups */}
       <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end p-3 sm:p-4">
-        {/* Lives */}
-        <div className="flex items-center gap-1">
-          <span className="text-xs sm:text-sm text-white/60 uppercase tracking-wider mr-2">
-            Lives
-          </span>
-          {Array.from({ length: 3 }).map((_, i) => (
+        {/* Active Power-ups */}
+        <div className="flex items-center gap-2">
+          {activePowerUps.rapidFire > 0 && (
             <div
-              key={i}
-              className={`w-4 h-4 sm:w-5 sm:h-5 transition-opacity ${
-                i < player.lives ? 'opacity-100' : 'opacity-20'
-              }`}
+              className="px-2 py-1 rounded text-xs uppercase tracking-wider"
               style={{
-                backgroundColor: COLORS.player,
-                boxShadow:
-                  i < player.lives ? `0 0 8px ${COLORS.player}` : 'none',
-                clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
+                backgroundColor: 'rgba(255, 200, 0, 0.2)',
+                color: '#FFC800',
+                border: '1px solid rgba(255, 200, 0, 0.5)',
               }}
-            />
-          ))}
+            >
+              Rapid Fire
+            </div>
+          )}
+          {activePowerUps.shield > 0 && (
+            <div
+              className="px-2 py-1 rounded text-xs uppercase tracking-wider"
+              style={{
+                backgroundColor: 'rgba(0, 255, 136, 0.2)',
+                color: COLORS.player,
+                border: `1px solid ${COLORS.player}`,
+              }}
+            >
+              Shield
+            </div>
+          )}
+          {activePowerUps.multiShot > 0 && (
+            <div
+              className="px-2 py-1 rounded text-xs uppercase tracking-wider"
+              style={{
+                backgroundColor: 'rgba(255, 0, 200, 0.2)',
+                color: '#FF00C8',
+                border: '1px solid rgba(255, 0, 200, 0.5)',
+              }}
+            >
+              Multi-Shot
+            </div>
+          )}
         </div>
 
         {/* Status indicators */}
