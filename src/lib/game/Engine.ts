@@ -82,6 +82,8 @@ export class GameEngine {
   // Callbacks
   private stateCallbacks: GameStateCallback[] = []
   private screenCallbacks: ScreenChangeCallback[] = []
+  private lastStateNotify: number = 0
+  private stateNotifyInterval: number = 100 // Throttle state updates to 100ms
 
   constructor(canvas: HTMLCanvasElement, initialSettings?: GameSettings) {
     this.canvas = canvas
@@ -297,8 +299,11 @@ export class GameEngine {
     const alpha = this.accumulator / TIMING.fixedTimestep
     this.render(alpha, currentTime)
 
-    // Notify state listeners
-    this.stateCallbacks.forEach((cb) => cb(this.gameState))
+    // Notify state listeners (throttled for performance)
+    if (currentTime - this.lastStateNotify >= this.stateNotifyInterval) {
+      this.lastStateNotify = currentTime
+      this.stateCallbacks.forEach((cb) => cb(this.gameState))
+    }
 
     this.animationId = requestAnimationFrame(this.loop)
   }

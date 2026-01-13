@@ -21,8 +21,8 @@ export function GameUI({ gameState, highScore, isBossFight }: GameUIProps) {
 
   return (
     <div className="absolute inset-0 pointer-events-none select-none">
-      {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-3 sm:p-4 text-white font-light">
+      {/* Top bar - extra right padding for mobile pause button */}
+      <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-3 sm:p-4 pr-14 sm:pr-4 text-white font-light">
         {/* Left section: Score + Lives */}
         <div className="flex flex-col items-start gap-2">
           {/* Score */}

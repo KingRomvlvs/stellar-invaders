@@ -22,25 +22,14 @@ export function GameCanvas() {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [currentScreen, setCurrentScreen] = useState<GameScreen>('menu')
   const [isMobile, setIsMobile] = useState(false)
-  const [isPortrait, setIsPortrait] = useState(false)
 
-  // Detect mobile device and orientation
+  // Detect mobile device once on mount
   useEffect(() => {
-    const checkDevice = () => {
-      const mobile =
-        'ontouchstart' in window ||
-        navigator.maxTouchPoints > 0 ||
-        window.innerWidth < 768
-      setIsMobile(mobile)
-      setIsPortrait(window.innerHeight > window.innerWidth)
-    }
-    checkDevice()
-    window.addEventListener('resize', checkDevice)
-    window.addEventListener('orientationchange', checkDevice)
-    return () => {
-      window.removeEventListener('resize', checkDevice)
-      window.removeEventListener('orientationchange', checkDevice)
-    }
+    const mobile =
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      window.innerWidth < 768
+    setIsMobile(mobile)
   }, [])
 
   // Handle canvas resize
@@ -139,10 +128,6 @@ export function GameCanvas() {
     }
   }, [handleResize]) // Only depends on handleResize (which is stable via useCallback)
 
-  // Re-run resize when orientation changes
-  useEffect(() => {
-    handleResize()
-  }, [isPortrait, handleResize])
 
   // Handle mobile controls
   const handleMoveLeft = useCallback((active: boolean) => {
