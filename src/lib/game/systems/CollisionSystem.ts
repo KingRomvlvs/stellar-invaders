@@ -90,8 +90,8 @@ export class CollisionSystem {
           )
           this.audioManager.playExplosion()
 
-          // Try to spawn power-up
-          this.powerUpSystem?.trySpawnPowerUp(state, invaderPos)
+          // Try to spawn power-up (type-specific based on invader)
+          this.powerUpSystem?.trySpawnPowerUp(state, invaderPos, invaderType)
         }
 
         // Only one hit per frame

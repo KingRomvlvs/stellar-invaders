@@ -263,6 +263,12 @@ export interface GameState {
 
   // UI State
   isPaused: boolean
+
+  // Power-up notification (shown briefly when collected)
+  powerUpNotification: {
+    type: PowerUpType
+    timer: number // Time remaining to show (ms)
+  } | null
 }
 
 // ========== SETTINGS ==========

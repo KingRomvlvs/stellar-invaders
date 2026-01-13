@@ -144,13 +144,18 @@ export class PlayerSystem {
     const isMultiShotActive = state.activePowerUps.multiShot > 0
     const isRapidFireActive = state.activePowerUps.rapidFire > 0
 
+    // Rapid fire increases projectile speed by 50%
+    const projectileSpeed = isRapidFireActive
+      ? PROJECTILE.player.speed * 1.5
+      : PROJECTILE.player.speed
+
     // Create main projectile
     const mainProjectile: Projectile = {
       position: {
         x: player.position.x,
         y: player.position.y - player.height / 2 - 5,
       },
-      velocity: { x: 0, y: -PROJECTILE.player.speed },
+      velocity: { x: 0, y: -projectileSpeed },
       width: PROJECTILE.player.width,
       height: PROJECTILE.player.height,
       isActive: true,
@@ -165,7 +170,7 @@ export class PlayerSystem {
     // Multi-shot: Add angled projectiles
     if (isMultiShotActive) {
       const spreadAngle = 15 * (Math.PI / 180) // 15 degrees
-      const speed = PROJECTILE.player.speed
+      const speed = projectileSpeed // Use the same speed (affected by rapid fire)
 
       // Left projectile
       const leftProjectile: Projectile = {

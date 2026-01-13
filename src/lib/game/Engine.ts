@@ -171,6 +171,7 @@ export class GameEngine {
       shotsHit: 0,
       shotsFired: 0,
       isPaused: false,
+      powerUpNotification: null,
     }
   }
 

@@ -200,6 +200,10 @@ export class FormationSystem {
   }
 
   // Try to shoot from formation
+  // Different invader types have different shooting patterns:
+  // - Squid (red): Fast single shot
+  // - Crab (green): Triple spread shot
+  // - Octopus (blue): Normal single shot
   private tryShoot(formation: FormationState, state: GameState): void {
     const shooters = this.getBottomInvaders(formation)
     if (shooters.length === 0) return
@@ -208,25 +212,65 @@ export class FormationSystem {
     if (Math.random() < FORMATION.shootChance) {
       // Pick a random bottom invader to shoot
       const shooter = shooters[Math.floor(Math.random() * shooters.length)]
+      const invaderType = shooter.invader?.type ?? 'octopus'
       const worldPos = this.getInvaderWorldPosition(formation, shooter.row, shooter.col)
 
-      // Create enemy projectile
-      const projectile: Projectile = {
-        position: {
-          x: worldPos.x,
-          y: worldPos.y + FORMATION.invaderHeight / 2 + 5,
-        },
-        velocity: { x: 0, y: PROJECTILE.enemy.speed },
-        width: PROJECTILE.enemy.width,
-        height: PROJECTILE.enemy.height,
-        isActive: true,
-        isPlayerProjectile: false,
-        damage: 1,
-        type: 'normal',
-      }
+      // Create projectiles based on invader type
+      switch (invaderType) {
+        case 'squid':
+          // Fast single shot (50% faster)
+          this.createProjectile(state, worldPos, 0, PROJECTILE.enemy.speed * 1.5)
+          break
 
-      state.enemyProjectiles.push(projectile)
+        case 'crab':
+          // Triple spread shot
+          const spreadAngle = 20 * (Math.PI / 180) // 20 degrees
+          this.createProjectile(state, worldPos, 0, PROJECTILE.enemy.speed) // Center
+          this.createProjectile(
+            state,
+            { x: worldPos.x - 6, y: worldPos.y },
+            -Math.sin(spreadAngle) * PROJECTILE.enemy.speed,
+            Math.cos(spreadAngle) * PROJECTILE.enemy.speed
+          ) // Left
+          this.createProjectile(
+            state,
+            { x: worldPos.x + 6, y: worldPos.y },
+            Math.sin(spreadAngle) * PROJECTILE.enemy.speed,
+            Math.cos(spreadAngle) * PROJECTILE.enemy.speed
+          ) // Right
+          break
+
+        case 'octopus':
+        default:
+          // Normal single shot
+          this.createProjectile(state, worldPos, 0, PROJECTILE.enemy.speed)
+          break
+      }
     }
+  }
+
+  // Helper to create an enemy projectile
+  private createProjectile(
+    state: GameState,
+    position: Vector2D,
+    velocityX: number,
+    velocityY: number
+  ): void {
+    const projectile: Projectile = {
+      position: {
+        x: position.x,
+        y: position.y + FORMATION.invaderHeight / 2 + 5,
+      },
+      velocity: { x: velocityX, y: velocityY },
+      width: PROJECTILE.enemy.width,
+      height: PROJECTILE.enemy.height,
+      isActive: true,
+      isPlayerProjectile: false,
+      damage: 1,
+      type: 'normal',
+    }
+
+    state.enemyProjectiles.push(projectile)
   }
 
   // Get world position of an invader

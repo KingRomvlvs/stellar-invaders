@@ -1,9 +1,16 @@
 // Power-Up System
 // Handles power-up spawning, collection, and effects
 
-import type { PowerUp, PowerUpType, GameState, Vector2D, ActivePowerUps } from '../types'
+import type { PowerUp, PowerUpType, GameState, Vector2D, ActivePowerUps, InvaderType } from '../types'
 import { POWERUP, CANVAS } from '../config'
 import type { AudioManager } from '../audio/AudioManager'
+
+// Invader types drop matching power-ups
+const INVADER_POWER_UP_MAP: Record<InvaderType, PowerUpType> = {
+  squid: 'rapidFire', // Red invaders have fast shots → drop rapid fire
+  crab: 'multiShot', // Green invaders shoot triple → drop multi-shot
+  octopus: 'shield', // Blue invaders are tough → drop shield
+}
 
 export class PowerUpSystem {
   private audioManager: AudioManager | null = null
@@ -22,24 +29,25 @@ export class PowerUpSystem {
   }
 
   // Try to spawn a power-up at the given position (called when enemy dies)
-  trySpawnPowerUp(state: GameState, position: Vector2D): void {
+  // If invaderType is provided, there's a higher chance to drop the matching power-up
+  trySpawnPowerUp(state: GameState, position: Vector2D, invaderType?: InvaderType): void {
     // Random chance to drop
     if (Math.random() > POWERUP.dropChance) return
 
-    // Pick random power-up type
-    const types: PowerUpType[] = ['extraLife', 'rapidFire', 'shield', 'multiShot']
-    // Extra life is rarer
-    const weights = [0.1, 0.3, 0.3, 0.3]
-    const rand = Math.random()
-    let cumulative = 0
-    let selectedType: PowerUpType = 'rapidFire'
+    let selectedType: PowerUpType
 
-    for (let i = 0; i < types.length; i++) {
-      cumulative += weights[i]
-      if (rand < cumulative) {
-        selectedType = types[i]
-        break
-      }
+    // 70% chance to drop the invader's matching power-up, 20% random, 10% extra life
+    const rand = Math.random()
+    if (invaderType && rand < 0.7) {
+      // Drop the power-up matching this invader type
+      selectedType = INVADER_POWER_UP_MAP[invaderType]
+    } else if (rand < 0.9) {
+      // Random power-up (excluding extra life)
+      const types: PowerUpType[] = ['rapidFire', 'shield', 'multiShot']
+      selectedType = types[Math.floor(Math.random() * types.length)]
+    } else {
+      // Rare extra life
+      selectedType = 'extraLife'
     }
 
     const powerUp: PowerUp = {
@@ -86,6 +94,14 @@ export class PowerUpSystem {
       state.activePowerUps.multiShot = Math.max(0, state.activePowerUps.multiShot - dt)
     }
 
+    // Update notification timer
+    if (state.powerUpNotification) {
+      state.powerUpNotification.timer -= dt
+      if (state.powerUpNotification.timer <= 0) {
+        state.powerUpNotification = null
+      }
+    }
+
     // Clean up inactive power-ups
     state.powerUps = state.powerUps.filter((p) => p.isActive)
   }
@@ -111,6 +127,12 @@ export class PowerUpSystem {
       case 'multiShot':
         state.activePowerUps.multiShot = POWERUP.effectDuration.multiShot
         break
+    }
+
+    // Show notification
+    state.powerUpNotification = {
+      type: powerUp.type,
+      timer: 2000, // Show for 2 seconds
     }
 
     // Play collection sound
