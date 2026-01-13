@@ -40,7 +40,7 @@ export function GameCanvas() {
 
     const containerWidth = container.clientWidth
     const containerHeight = container.clientHeight
-    const gameAspectRatio = CANVAS.width / CANVAS.height // 800/600 = 1.333
+    const gameAspectRatio = CANVAS.width / CANVAS.height // 600/800 = 0.75 (portrait)
     const isMobileDevice =
       'ontouchstart' in window ||
       navigator.maxTouchPoints > 0 ||

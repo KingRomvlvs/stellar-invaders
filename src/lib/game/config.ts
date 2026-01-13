@@ -6,8 +6,8 @@ import type { InvaderType, AsteroidSize } from './types'
 // ========== CANVAS ==========
 
 export const CANVAS = {
-  width: 800,
-  height: 600,
+  width: 600,
+  height: 800,
 } as const
 
 // ========== TIMING ==========
@@ -34,12 +34,12 @@ export const PLAYER = {
 
 export const FORMATION = {
   rows: 5,
-  cols: 11,
+  cols: 9, // Reduced from 11 for portrait layout
   invaderWidth: 32,
   invaderHeight: 24,
   spacingX: 48,
   spacingY: 36,
-  startX: 60,
+  startX: 76, // Centered for 600px width: (600 - (8*48 + 32)) / 2 + 16
   startY: 100,
 
   // Step-based movement (the Space Invaders signature)
