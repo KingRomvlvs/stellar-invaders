@@ -314,24 +314,46 @@ export class FormationSystem {
     return formation.grid[row][col].invader
   }
 
-  // Destroy invader and return points
+  // Damage invader and return { destroyed, points, invaderType }
+  damageInvader(
+    formation: FormationState,
+    row: number,
+    col: number,
+    damage: number = 1
+  ): { destroyed: boolean; points: number; invaderType: InvaderType | null } {
+    const slot = formation.grid[row][col]
+    if (!slot.invader?.isActive) {
+      return { destroyed: false, points: 0, invaderType: null }
+    }
+
+    const invaderType = slot.invader.type
+    slot.invader.health -= damage
+
+    if (slot.invader.health <= 0) {
+      // Destroyed
+      const points = slot.invader.points
+      slot.invader.isActive = false
+      slot.invader = null
+      formation.activeInvaders--
+
+      // Recalculate bounds when invader is destroyed
+      formation.bounds = this.calculateBounds(formation.grid)
+
+      return { destroyed: true, points, invaderType }
+    }
+
+    // Damaged but not destroyed
+    return { destroyed: false, points: 0, invaderType }
+  }
+
+  // Legacy method for backwards compatibility
   destroyInvader(
     formation: FormationState,
     row: number,
     col: number
   ): number {
-    const slot = formation.grid[row][col]
-    if (!slot.invader?.isActive) return 0
-
-    const points = slot.invader.points
-    slot.invader.isActive = false
-    slot.invader = null
-    formation.activeInvaders--
-
-    // Recalculate bounds when invader is destroyed
-    formation.bounds = this.calculateBounds(formation.grid)
-
-    return points
+    const result = this.damageInvader(formation, row, col, 999) // Instant kill
+    return result.points
   }
 
   // Check if formation is empty

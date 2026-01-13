@@ -59,9 +59,9 @@ export const INVADER_CONFIG: Record<
   InvaderType,
   { points: number; health: number }
 > = {
-  squid: { points: 30, health: 1 }, // Top row
-  crab: { points: 20, health: 1 }, // Middle rows
-  octopus: { points: 10, health: 1 }, // Bottom rows
+  squid: { points: 30, health: 1 }, // Top row - fast shooter, drops Rapid Fire
+  crab: { points: 20, health: 1 }, // Middle rows - triple shot, drops Triple Shot
+  octopus: { points: 15, health: 2 }, // Bottom rows - tanky (2 hits), drops Shield
 }
 
 // Row layout: which type on which row (0 = top)

@@ -310,7 +310,13 @@ export class GameEngine {
       currentTime - this.lastStateNotify >= this.stateNotifyInterval
     ) {
       this.lastStateNotify = currentTime
-      this.stateCallbacks.forEach((cb) => cb(this.gameState))
+      // Create shallow copy to trigger React re-render (new object reference)
+      const stateCopy = {
+        ...this.gameState,
+        player: { ...this.gameState.player },
+        activePowerUps: { ...this.gameState.activePowerUps },
+      }
+      this.stateCallbacks.forEach((cb) => cb(stateCopy))
     }
 
     this.animationId = requestAnimationFrame(this.loop)

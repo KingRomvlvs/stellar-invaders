@@ -66,32 +66,44 @@ export class CollisionSystem {
 
       if (hit) {
         projectile.isActive = false
-        const points = this.formationSystem.destroyInvader(
+
+        // Get position before potentially destroying
+        const invaderPos = this.formationSystem.getInvaderWorldPosition(
           formation,
           hit.row,
           hit.col
         )
 
-        if (points > 0) {
-          state.score += points
-          state.shotsHit++
+        // Damage the invader (may or may not destroy it)
+        const result = this.formationSystem.damageInvader(
+          formation,
+          hit.row,
+          hit.col,
+          projectile.damage
+        )
+
+        state.shotsHit++
+
+        if (result.destroyed) {
+          // Invader was destroyed
+          state.score += result.points
 
           // Create explosion
-          const invaderPos = this.formationSystem.getInvaderWorldPosition(
-            formation,
-            hit.row,
-            hit.col
-          )
-          const invaderType = formation.grid[hit.row][hit.col]?.invader?.type ?? 'octopus'
           this.particleSystem.createInvaderDeath(
             state,
             invaderPos,
-            COLORS.invaders[invaderType]
+            COLORS.invaders[result.invaderType ?? 'octopus']
           )
           this.audioManager.playExplosion()
 
           // Try to spawn power-up (type-specific based on invader)
-          this.powerUpSystem?.trySpawnPowerUp(state, invaderPos, invaderType)
+          if (result.invaderType) {
+            this.powerUpSystem?.trySpawnPowerUp(state, invaderPos, result.invaderType)
+          }
+        } else {
+          // Invader was damaged but not destroyed - show hit effect
+          this.particleSystem.createBunkerHit(state, invaderPos)
+          this.audioManager.playExplosion()
         }
 
         // Only one hit per frame
@@ -271,12 +283,13 @@ export class CollisionSystem {
         this.particleSystem.createExplosion(state, ufo.position, COLORS.ufo)
         this.audioManager.playUFOHit()
 
-        // UFO grants special reward: either Shield OR (Triple Shot + Rapid Fire)
+        // UFO grants special reward: Shield + Heart OR Triple Shot + Rapid Fire
         if (Math.random() < 0.5) {
-          // 50% chance: Shield
+          // 50% chance: Shield + Extra Life
           state.activePowerUps.shield = POWERUP.effectDuration.shield
           state.player.isInvincible = true
           state.player.invincibilityTimer = POWERUP.effectDuration.shield
+          state.player.lives++ // Extra heart!
           state.powerUpNotification = { type: 'shield', timer: 2000 }
         } else {
           // 50% chance: Triple Shot + Rapid Fire combo

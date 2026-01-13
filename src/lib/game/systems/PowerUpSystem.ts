@@ -5,11 +5,11 @@ import type { PowerUp, PowerUpType, GameState, Vector2D, ActivePowerUps, Invader
 import { POWERUP, CANVAS } from '../config'
 import type { AudioManager } from '../audio/AudioManager'
 
-// Invader types drop matching power-ups
+// Invader types drop matching power-ups (90% their type, 10% extra life)
 const INVADER_POWER_UP_MAP: Record<InvaderType, PowerUpType> = {
-  squid: 'rapidFire', // Red invaders have fast shots → drop rapid fire
+  squid: 'rapidFire', // Red invaders shoot rapidly → drop rapid fire
   crab: 'multiShot', // Green invaders shoot triple → drop multi-shot
-  octopus: 'shield', // Blue invaders are tough → drop shield
+  octopus: 'shield', // Blue invaders are tanky → drop shield
 }
 
 export class PowerUpSystem {
@@ -29,25 +29,24 @@ export class PowerUpSystem {
   }
 
   // Try to spawn a power-up at the given position (called when enemy dies)
-  // If invaderType is provided, there's a higher chance to drop the matching power-up
+  // Each invader type drops its matching power-up (90%) or heart (10%)
   trySpawnPowerUp(state: GameState, position: Vector2D, invaderType?: InvaderType): void {
-    // Random chance to drop
+    // Random chance to drop (30%)
     if (Math.random() > POWERUP.dropChance) return
 
     let selectedType: PowerUpType
 
-    // 70% chance to drop the invader's matching power-up, 20% random, 10% extra life
-    const rand = Math.random()
-    if (invaderType && rand < 0.7) {
-      // Drop the power-up matching this invader type
-      selectedType = INVADER_POWER_UP_MAP[invaderType]
-    } else if (rand < 0.9) {
-      // Random power-up (excluding extra life)
-      const types: PowerUpType[] = ['rapidFire', 'shield', 'multiShot']
-      selectedType = types[Math.floor(Math.random() * types.length)]
+    if (invaderType) {
+      // 90% chance for type-specific power-up, 10% chance for heart
+      if (Math.random() < 0.9) {
+        selectedType = INVADER_POWER_UP_MAP[invaderType]
+      } else {
+        selectedType = 'extraLife'
+      }
     } else {
-      // Rare extra life
-      selectedType = 'extraLife'
+      // No invader type specified - random power-up
+      const types: PowerUpType[] = ['rapidFire', 'shield', 'multiShot', 'extraLife']
+      selectedType = types[Math.floor(Math.random() * types.length)]
     }
 
     const powerUp: PowerUp = {
