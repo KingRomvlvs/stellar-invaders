@@ -175,7 +175,7 @@ export const POWERUP = {
   height: 24,
   fallSpeed: 80, // pixels per second
   lifetime: 8000, // ms before disappearing
-  dropChance: 0.15, // 15% chance when killing an invader
+  dropChance: 0.30, // 30% chance when killing an invader
   effectDuration: {
     rapidFire: 5000, // 5 seconds
     shield: 4000, // 4 seconds

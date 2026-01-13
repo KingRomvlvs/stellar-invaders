@@ -300,8 +300,15 @@ export class GameEngine {
     const alpha = this.accumulator / TIMING.fixedTimestep
     this.render(alpha, currentTime)
 
-    // Notify state listeners (throttled for performance)
-    if (currentTime - this.lastStateNotify >= this.stateNotifyInterval) {
+    // Notify state listeners (throttled for performance, but immediate for power-ups)
+    const hasFreshPowerUp =
+      this.gameState.powerUpNotification &&
+      this.gameState.powerUpNotification.timer > 1900 // Just collected (2000ms - 100ms buffer)
+
+    if (
+      hasFreshPowerUp ||
+      currentTime - this.lastStateNotify >= this.stateNotifyInterval
+    ) {
       this.lastStateNotify = currentTime
       this.stateCallbacks.forEach((cb) => cb(this.gameState))
     }

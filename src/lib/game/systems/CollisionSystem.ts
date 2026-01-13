@@ -8,7 +8,7 @@ import type {
   BunkerCell,
   Vector2D,
 } from '../types'
-import { FORMATION, PLAYER, BUNKER, CANVAS, COLORS } from '../config'
+import { FORMATION, PLAYER, BUNKER, CANVAS, COLORS, POWERUP } from '../config'
 import type { FormationSystem } from './FormationSystem'
 import type { PlayerSystem } from './PlayerSystem'
 import type { ParticleSystem } from './ParticleSystem'
@@ -270,6 +270,20 @@ export class CollisionSystem {
 
         this.particleSystem.createExplosion(state, ufo.position, COLORS.ufo)
         this.audioManager.playUFOHit()
+
+        // UFO grants special reward: either Shield OR (Triple Shot + Rapid Fire)
+        if (Math.random() < 0.5) {
+          // 50% chance: Shield
+          state.activePowerUps.shield = POWERUP.effectDuration.shield
+          state.player.isInvincible = true
+          state.player.invincibilityTimer = POWERUP.effectDuration.shield
+          state.powerUpNotification = { type: 'shield', timer: 2000 }
+        } else {
+          // 50% chance: Triple Shot + Rapid Fire combo
+          state.activePowerUps.multiShot = POWERUP.effectDuration.multiShot
+          state.activePowerUps.rapidFire = POWERUP.effectDuration.rapidFire
+          state.powerUpNotification = { type: 'multiShot', timer: 2000 }
+        }
       }
     }
   }

@@ -201,7 +201,7 @@ export class FormationSystem {
 
   // Try to shoot from formation
   // Different invader types have different shooting patterns:
-  // - Squid (red): Fast single shot
+  // - Squid (red): Double shot (two projectiles in a row)
   // - Crab (green): Triple spread shot
   // - Octopus (blue): Normal single shot
   private tryShoot(formation: FormationState, state: GameState): void {
@@ -215,11 +215,17 @@ export class FormationSystem {
       const invaderType = shooter.invader?.type ?? 'octopus'
       const worldPos = this.getInvaderWorldPosition(formation, shooter.row, shooter.col)
 
-      // Create projectiles based on invader type
+      // Create projectiles based on invader type (all same speed)
       switch (invaderType) {
         case 'squid':
-          // Fast single shot (50% faster)
-          this.createProjectile(state, worldPos, 0, PROJECTILE.enemy.speed * 1.5)
+          // Double shot (two projectiles stacked vertically)
+          this.createProjectile(state, worldPos, 0, PROJECTILE.enemy.speed)
+          this.createProjectile(
+            state,
+            { x: worldPos.x, y: worldPos.y + 12 },
+            0,
+            PROJECTILE.enemy.speed
+          )
           break
 
         case 'crab':
